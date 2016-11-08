@@ -1,10 +1,10 @@
 baseurl: /tufte-css-jekyll
 title: tufte-css-jekyll
 header: true
-subtitle: Subtitle
+subtitle: A Jekyll theme based on tufte-css
 author: Stephan Druskat
-email: 
-description: A Jekyll theme for content-rich sites
+email: mail [at] sdruskat [dot]
+description: A Jekyll theme based on tufte-css
 markdown: kramdown
 markdown_ext: "markdown,mkdown,mkdn,mkd,md"
 permalink: /articles/:categories/:year/:month/:day/:title.html
@@ -17,6 +17,5 @@ post:
 page:
   template: _page.txt
   extension: md
-editor: gvim
 git:
   branch: src
