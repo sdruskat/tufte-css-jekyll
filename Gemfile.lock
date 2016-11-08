@@ -41,8 +41,8 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  jekyll
-  rouge
+  jekyll (>= 3.3.0)
+  rouge (>= 1.11.1)
 
 BUNDLED WITH
    1.13.6
