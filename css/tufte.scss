@@ -63,7 +63,7 @@ a {
 
   }
 
-p > a { 
+p > a, cite > a { 
 
 // CUSTOM
 
@@ -90,6 +90,12 @@ p > a {
       text-decoration: none;
     }
   }
+
+p > cite {
+  position: absolute;
+  margin-top: 1rem;
+  margin-right: 0;
+}
 
 body { width: 87.5%;
        margin-left: auto;
