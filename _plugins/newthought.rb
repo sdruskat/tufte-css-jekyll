@@ -14,7 +14,7 @@ require "shellwords"
 
 
     def render(context)
-      "<span class='newthought'>#{@text[0]}</span> "
+      "<span class='newthought'>#{@text[0]}</span>"
     end
   end
 end
