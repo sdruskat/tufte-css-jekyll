@@ -28,12 +28,12 @@ Organize your document with an `article` element inside your `body` tag. Inside 
 
 Tufte CSS uses `h1` for the document title, `p` with class `subtitle` for the document subtitle, `h2` for section headings, and `h3` for low-level headings. More specific headings are not supported. If you feel the urge to reach for a heading of level 4 or greater, consider redesigning your document:
 
-> [It is] notable that the Feynman lectures (3 volumes) write about all of physics in 1800 pages, using only 2 levels of hierarchical headings: chapters and A-level heads in the text. It also uses the methodology of <em>sentences</em> which then cumulate sequentially into <em>paragraphs</em>, rather than the grunts of bullet points. Undergraduate Caltech physics is very complicated material, but it didn't require an elaborate hierarchy to organize. 
+> [It is] notable that the Feynman lectures (3 volumes) write about all of physics in 1800 pages, using only 2 levels of hierarchical headings: chapters and A-level heads in the text. It also uses the methodology of *sentences* which then cumulate sequentially into *paragraphs*, rather than the grunts of bullet points. Undergraduate Caltech physics is very complicated material, but it didn't require an elaborate hierarchy to organize. 
 <cite>[Edward Tufte, forum post, ‘Book design: advice and examples' thread](http://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0000hB)</cite>
 
 As a bonus, this excerpt regarding the use of headings provides an example of block quotes. In Tufte CSS they are just lightly styled, semantically correct HTML using `blockquote` and `footer` elements. See page 20 of [The Visual Display of Quantitative Information](https://www.edwardtufte.com/tufte/books_vdqi) for an example in print.
 
-{% newthought 'In his later books'%}{% sidenote 'BE' '[Beautiful Evidence](http://www.edwardtufte.com/tufte/books_be)' %}, Tufte starts each section with a bit of vertical space, a non-indented paragraph, and the first few words of the sentence set in small caps. For this we use a span with the class `newthought`, as demonstrated at the beginning of this paragraph. Vertical spacing is accomplished separately through `&lt;section&gt;` tags. Be consistent: though we do so in this paragraph for the purpose of demonstration, do not alternate use of header elements and the `newthought` technique. Pick one approach and stick to it.
+{% newthought 'In his later books'%}{% sidenote 'BE' '[Beautiful Evidence](http://www.edwardtufte.com/tufte/books_be)' %}, Tufte starts each section with a bit of vertical space, a non-indented paragraph, and the first few words of the sentence set in small caps. For this we use a span with the class `newthought`, as demonstrated at the beginning of this paragraph. Vertical spacing is accomplished separately through `<section>` tags. Be consistent: though we do so in this paragraph for the purpose of demonstration, do not alternate use of header elements and the `newthought` technique. Pick one approach and stick to it.
 
 ### Text
 
@@ -49,42 +49,34 @@ Links in Tufte CSS match the body text in color and do not change on mouseover o
 
 As always, these design choices are merely one approach that Tufte CSS provides by default. Other approaches, such as changing color on click or mouseover, or using highlighting or color instead of underlining to denote links, could also be made to work. The goal is to make sentences readable without interference from links, as well as to make links immediately identifiable even by casual web users.
 
-<h2 id="epigraphs">Epigraphs</h2>
+## Epigraphs
 	
-	<div class="epigraph">
-	<blockquote>
-            The English language . . . becomes ugly and inaccurate because our thoughts are foolish, but the slovenliness of our language makes it easier for us to have foolish thoughts.
+{% epigraph 'The English language . . . becomes ugly and inaccurate because our thoughts are foolish, but the slovenliness of our language makes it easier for us to have foolish thoughts.' 'George Orwell, "Politics and the English Language"' %}
+
+{% epigraph 'For a successful technology, reality must take precedence over public relations, for Nature cannot be fooled.' 'Richard P. Feynman, "What Do You Care What Other People Think?"' %}
+
+{% epigraph 'I do not paint things, I paint only the differences between things.' 'Henri Matisse, Henri Matisse Dessins: thèmes et variations (Paris, 1943), 37' %}
+
+If you'd like to introduce your page or a section of your page with some quotes, use epigraphs. Modeled after chapter epigraphs in Tufte's books (particularly *Beautiful Evidence*), these are `blockquote` elements with a bit of specialized styling. Quoted text is italicized. The source goes in a `footer` element inside the `blockquote`. We have provided three examples in the epigraph of this section, demonstrating shorter and longer quotes, with and without a paragraph tag, and showing how multiple quotes within an epigraph fit together with the use of a wrapper class.
 
 
-            <footer>George Orwell, "Politics and the English Language"</footer>
-          </blockquote>
-          <blockquote>
-            For a successful technology, reality must take precedence over public relations, for Nature cannot be fooled.
+## Sidenotes: Footnotes and Marginal Notes
 
+One of the most distinctive features of Tufte's style is his extensive use of sidenotes.{% sidenote 'extensive-use-of-sidenotes' 'This is a sidenote.' %} Sidenotes are like footnotes, except they don't force the reader to jump their eye to the bottom of the page, but instead display off to the side in the margin. Perhaps you have noticed their use in this document already. You are very astute.
 
-            <footer>Richard P. Feynman, <cite>"What Do You Care What Other People Think?"</cite></footer>
-          </blockquote>
-          <blockquote>I do not paint things, I paint only the differences between things.<footer>Henri Matisse, <cite>Henri Matisse Dessins: thèmes et variations</cite> (Paris, 1943), 37</footer></blockquote>
-        </div>
-
-If you'd like to introduce your page or a section of your page with some quotes, use epigraphs. Modeled after chapter epigraphs in Tufte's books (particularly <em>Beautiful Evidence</em>), these are `blockquote` elements with a bit of specialized styling. Quoted text is italicized. The source goes in a `footer` element inside the `blockquote`. We have provided three examples in the epigraph of this section, demonstrating shorter and longer quotes, with and without a paragraph tag, and showing how multiple quotes within an epigraph fit together with the use of a wrapper class.
-
-
-<h2 id="sidenotes">Sidenotes: Footnotes and Marginal Notes</h2>
-
-One of the most distinctive features of Tufte's style is his extensive use of sidenotes.<label for="sn-extensive-use-of-sidenotes" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-extensive-use-of-sidenotes" class="margin-toggle"/><span class="sidenote">This is a sidenote.</span> Sidenotes are like footnotes, except they don't force the reader to jump their eye to the bottom of the page, but instead display off to the side in the margin. Perhaps you have noticed their use in this document already. You are very astute.
-
-Sidenotes are a great example of the web not being like print. On sufficiently large viewports, Tufte CSS uses the margin for sidenotes, margin notes, and small figures. On smaller viewports, elements that would go in the margin are hidden until the user toggles them into view. The goal is to present related but not necessary information such as asides or citations <em>as close as possible</em> to the text that references them. At the same time, this secondary information should stay out of the way of the eye, not interfering with the progression of ideas in the main text.
+Sidenotes are a great example of the web not being like print. On sufficiently large viewports, Tufte CSS uses the margin for sidenotes, margin notes, and small figures. On smaller viewports, elements that would go in the margin are hidden until the user toggles them into view. The goal is to present related but not necessary information such as asides or citations *as close as possible* to the text that references them. At the same time, this secondary information should stay out of the way of the eye, not interfering with the progression of ideas in the main text.
 
 Sidenotes consist of two elements: a superscript reference number that goes inline with the text, and a sidenote with content. To add the former, just put a label and dummy checkbox into the text where you want the reference to go, like so:
 
 ```
-&lt;label for="sn-demo"
-       class="margin-toggle sidenote-number"&gt;
-&lt;/label&gt;
-&lt;input type="checkbox"
+<label for="sn-demo"
+       class="margin-toggle sidenote-number">
+</label>
+<input type="checkbox"
 id="sn-demo"
-class="margin-toggle"/&gt;</pre>
+class="margin-toggle"/>
+```
+
 You must manually assign a reference `id` to each side or margin note, replacing "sn-demo" in the `for` and the `id` attribute values with an appropriate descriptor. It is useful to use prefixes like `sn-` for sidenotes and `mn-` for margin notes.
 
 Immediately adjacent to that sidenote reference in the main text goes the sidenote content itself, in a `span` with class `sidenote`. This tag is also inserted directly in the middle of the body text, but is either pushed into the margin or hidden by default. Make sure to position your sidenotes correctly by keeping the sidenote-number label close to the sidenote itself.
@@ -99,11 +91,11 @@ This is a margin note. Notice there isn't a number preceding the note.
 Margin notes are created just like sidenotes, but with the `marginnote` class for the content and the `margin-toggle` class for the label and dummy checkbox. For instance, here is the code for the margin note used in the previous paragraph:
 
 ```
-&lt;label for="mn-demo" class="margin-toggle"&gt;&amp;#8853;&lt;/label&gt;
-&lt;input type="checkbox" id="mn-demo" class="margin-toggle"/&gt;
-&lt;span class="marginnote"&gt;
+<label for="mn-demo" class="margin-toggle">&amp;#8853;</label>
+<input type="checkbox" id="mn-demo" class="margin-toggle"/>
+<span class="marginnote">
   This is a margin note. Notice there isn't a number preceding the note.
-&lt;/span&gt;</pre>
+</span></pre>
 
 Figures in the margin are created as margin notes, as demonstrated in the next section.
 
@@ -114,15 +106,15 @@ Tufte emphasizes tight integration of graphics with text. Data, graphs, and figu
 Figures should try to use the `figure` element, which by default are constrained to the main column. Don't wrap figures in a paragraph tag. Any label or margin note goes in a regular margin note inside the figure. For example, most of the time one should introduce a figure directly into the main flow of discussion, like so:
 
 <figure>
-          <label for="mn-exports-imports" class="margin-toggle">&#8853;</label><input type="checkbox" id="mn-exports-imports" class="margin-toggle"/><span class="marginnote">From Edward Tufte, <em>Visual Display of Quantitative Information</em>, page 92.</span>
+          <label for="mn-exports-imports" class="margin-toggle">&#8853;</label><input type="checkbox" id="mn-exports-imports" class="margin-toggle"/><span class="marginnote">From Edward Tufte, *Visual Display of Quantitative Information*, page 92.</span>
           <img src="img/exports-imports.png" alt="Exports and Imports to and from Denmark & Norway from 1700 to 1780" />
         </figure>
 
-        <label for="mn-figure-1" class="margin-toggle">&#8853;</label><input type="checkbox" id="mn-figure-1" class="margin-toggle"/><span class="marginnote"><img src="img/rhino.png" alt="Image of a Rhinoceros"/>F.J. Cole, "The History of Albrecht Dürer's Rhinoceros in Zooological Literature," <em>Science, Medicine, and History: Essays on the Evolution of Scientific Thought and Medical Practice</em> (London, 1953), ed. E. Ashworth Underwood, 337-356. From page 71 of Edward Tufte's <em>Visual Explanations</em>.</span> 
+        <label for="mn-figure-1" class="margin-toggle">&#8853;</label><input type="checkbox" id="mn-figure-1" class="margin-toggle"/><span class="marginnote"><img src="img/rhino.png" alt="Image of a Rhinoceros"/>F.J. Cole, "The History of Albrecht Dürer's Rhinoceros in Zooological Literature," *Science, Medicine, and History: Essays on the Evolution of Scientific Thought and Medical Practice* (London, 1953), ed. E. Ashworth Underwood, 337-356. From page 71 of Edward Tufte's *Visual Explanations*.</span> 
 
 But tight integration of graphics with text is central to Tufte's work even when those graphics are ancillary to the main body of a text. In many of those cases, a margin figure may be most appropriate. To place figures in the margin, just wrap an image (or whatever) in a margin note inside a `p` tag, as seen to the right of this paragraph.
 
-If you need a full-width figure, give it the `fullwidth` class. Make sure that's inside an `article`, and it will take up (almost) the full width of the screen. This approach is demonstrated below using Edward Tufte's English translation of the Napoleon's March data visualization. From <em>Beautiful Evidence</em>, page 122-124.
+If you need a full-width figure, give it the `fullwidth` class. Make sure that's inside an `article`, and it will take up (almost) the full width of the screen. This approach is demonstrated below using Edward Tufte's English translation of the Napoleon's March data visualization. From *Beautiful Evidence*, page 122-124.
 
 
 <figure class="fullwidth">
