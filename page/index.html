@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Tufte CSS</title>
+  <meta name="description" content="A Jekyll theme for content-rich sites">
+
+  <!-- Google Fonts loaded here depending on setting in _data/options.yml true loads font, blank does not-->
+  
+    <link href='//fonts.googleapis.com/css?family=Lato:400,400italic' rel='stylesheet' type='text/css'>
+  
+  
+  <!-- Load up MathJax script if needed ... specify in /_data/options.yml file-->
+  
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+  <link rel="stylesheet" type="text/css" href="/css/tufte.css">
+  <link rel="stylesheet" type="text/css" href="/css/latex.css">
+  <!-- <link rel="stylesheet" type="text/css" href="/css/print.css" media="print"> -->
+
+  <link rel="canonical" href="/page/">
+
+  <link rel="alternate" type="application/rss+xml" title="Stephan Druskat" href="/feed.xml" />
+</head>
+
+  <body>
+    <!--- Header and nav template site-wide -->
+<header>
+
+	
+		<h1 class="header-title">Stephan Druskat</h1>
+	
+
+    <nav class="group">
+	
+		
+		    
+		      <a href="/">blog</a>
+		    
+	    
+  	
+		
+		    
+		      <a class="active" href="/page/" class="active">Tufte CSS</a>
+		    
+	    
+  	
+		
+		    
+		      <a href="/about/">About</a>
+		    
+	    
+  	
+		
+		    
+		      <a href="/css/latex.css"></a>
+		    
+	    
+  	
+		
+		    
+		      <a href="/css/print.css"></a>
+		    
+	    
+  	
+		
+  	
+	</nav>
+</header>
+    <article class="group">
+      <h1>Tufte CSS</h1>
+<p class="subtitle">Dave Liepmann</p>
+<p class="margin-maker"/>
+
+<p>Tufte CSS provides tools to style web articles using the ideas demonstrated by Edward Tufte’s books and handouts. Tufte’s style is known for its simplicity, extensive use of sidenotes, tight integration of graphics with text, and carefully chosen typography.</p>
+
+<p>Tufte CSS was created by Dave Liepmann and is now an Edward Tufte project. The original idea was cribbed from Tufte-<span class="latex">L<span class="latex-sup">a</span>T<span class="latex-sub">e</span>X</span> and R Markdown’s Tufte Handout format. We give hearty thanks to all the people who have contributed to those projects.</p>
+
+<p>If you see anything that Tufte CSS could improve, we welcome your contribution in the form of an issue or pull request on the GitHub project: tufte-css. Please note the contribution guidelines.</p>
+
+<p>Finally, a reminder about the goal of this project. The web is not print. Webpages are not books. Therefore, the goal of Tufte CSS is not to say “websites should look like this interpretation of Tufte’s books” but rather “here are some techniques Tufte developed that we’ve found useful in print; maybe you can find a way to make them useful on the web”. Tufte CSS is merely a sketch of one way to implement this particular set of ideas. It should be a <a href="http://google.de">starting point</a>, not a design goal, because any project should present their information as best suits their particular circumstances.</p>
+
+<p><span class="newthought">In this first iteration chumba</span>  of the <em>Tufte-Jekyll</em> theme, a post and a page have exactly the same layout. That means that all the typographic and structural details are identical between the two.</p>
+
+<h2 id="pages-and-posts">Pages and Posts</h2>
+
+<p>CHUG CHUG Jekyll provides for both pages and posts in its default configuration. I have left this as-is.</p>
+
+<h3 id="posts">Posts</h3>
+
+<p>Conceptually, posts are for recurring pieces of similar content such as might be found in a typical blog entry. Post content all sits in a folder named <code class="highlighter-rouge">_posts</code> and files are created in this folder<label for="1" class="margin-toggle sidenote-number"></label><input type="checkbox" id="1" class="margin-toggle" /><span class="sidenote">Yes, a page has essentially the same old shit as a post </span> that are names with a date pre-pended to the title of the post. For instance <code class="highlighter-rouge">2105-02-20-this-is-a-post.md</code> is a perfectly valid post filename.</p>
+
+<p>Posts will always have a section above the content itself consisting of YAML front matter, which is meta-data information about the post. Minimally, a post title must always be present for it to be processed properly.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>---
+Title: Some Title
+---
+## Content
+
+Markdown formatted content *here*.
+</code></pre>
+</div>
+
+<h3 id="pages">Pages</h3>
+
+<p>Pages are any HTML documents <em>or</em> Markdown documents with YAML front matter that are then converted to content. Page material is more suited to static, non-recurring types of content. Like this</p>
+
+<p>I am not going to re-write the Jekyll documentation. Read it and you will figure out how the site is structured.</p>
+
+
+
+    </article>
+    <span class="print-footer">Tufte CSS - clay harmon</span>
+    <footer>
+  <hr class="slender">
+  <ul class="footer-links">
+    <li><a href="mailto:hate@spam.net"><span class="icon-mail"></span></a></li>    
+      
+  </ul>
+<div class="credits">
+<span>&copy; 2016 &nbsp;&nbsp;CLAY HARMON</span></br> <br>
+<span>This site created with the <a href="//github.com/clayh53/tufte-jekyll">Tufte theme for Content-centric blogging </a> in <a href="//jekyllrb.com">Jekyll</a>.</span> 
+</div>  
+</footer>
+  </body>
+</html>
