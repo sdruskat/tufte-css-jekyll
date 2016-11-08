@@ -1,7 +1,7 @@
 baseurl: /tufte-css-jekyll
 title: tufte-css-jekyll
 header: true
-subtitle: Jekyll sites based on tufte-css
+subtitle: Subtitle
 author: Stephan Druskat
 email: 
 description: A Jekyll theme for content-rich sites

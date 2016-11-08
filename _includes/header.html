@@ -3,6 +3,10 @@
 
 	{% if site.header == true %}
 		<h1 class="header-title">{{ site.title }}</h1>
+		{% if site.subtitle == "" or site.subtitle == nil %}
+		{% else %}
+			<h2 class="header-subtitle">{{ site.subtitle }}</h2>
+		{% endif %}
 	{% endif %}
 
     <nav class="group">
