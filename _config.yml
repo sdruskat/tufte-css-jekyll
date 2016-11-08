@@ -1,18 +1,16 @@
-baseurl: /tufte-css-jekyll 
-title: Stephan Druskat
+baseurl: /tufte-css-jekyll
+title: tufte-css-jekyll
 header: true
-title-color: red
-subtitle: Content-centric blogging
-author: clay harmon
-simple_search: http://google.com/search
+subtitle: Jekyll sites based on tufte-css
+author: Stephan Druskat
+email: 
 description: A Jekyll theme for content-rich sites
-name: tufte
 markdown: kramdown
 markdown_ext: "markdown,mkdown,mkdn,mkd,md"
-permalink: /articles/:short_year/:title
-timezone: America/New_York
+permalink: /articles/:categories/:year/:month/:day/:title.html
+timezone: Europe/Berlin
 excerpt_separator: <!--more-->  # you can specify your own separator, of course.
-exclude: ['Gemfile', 'Rakefile', 'README.md']
+exclude: ['Gemfile', 'Gemfile.lock', 'Rakefile', 'DeployToGithub.Rakefile', 'README.md']
 post:
   template: _post.txt
   extension: md
@@ -22,8 +20,3 @@ page:
 editor: gvim
 git:
   branch: src
-transfer:
-  command: rsync
-  settings: -av
-  source: _site/
-  destination: ~/Git/clayh53.github.com/
