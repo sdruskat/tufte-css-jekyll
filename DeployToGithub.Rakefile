@@ -18,9 +18,9 @@ end
 desc "Generate and publish blog to gh-pages"
 task :publish => [:generate] do
   Dir.mktmpdir do |tmp|
-    commitmessage = "Commit changes in master"
+    commitmessage = "Commit changes in src"
     system "git commit -am #{commitmessage.shellescape}"
-    system "git push origin master --force"
+    system "git push origin src --force"
     system "mv _site/* #{tmp}"
     system "git checkout -B gh-pages"
     system "rm -rf *"
@@ -29,7 +29,7 @@ task :publish => [:generate] do
     system "git add ."
     system "git commit -am #{message.shellescape}"
     system "git push origin gh-pages --force"
-    system "git checkout master"
+    system "git checkout src"
     system "echo Done."
   end
 end
