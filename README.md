@@ -1,33 +1,20 @@
 # tufte-css-jekyll
 
-## [tufte-css](https://github.com/edwardtufte/tufte-css) wrapped in a comfy Jekyll theme
+## [tufte-css](https://github.com/edwardtufte/tufte-css) wrapped in a comfy Jekyll theme with `rake` support
 
+*tufte-css-jekyll* aims at closely mimicking the [Edward Tufte](https://www.edwardtufte.com/tufte/)-inspired styles from [*tufte-css*](https://github.com/edwardtufte/tufte-css) ([MIT License](https://github.com/edwardtufte/tufte-css/blob/gh-pages/LICENSE)) in the framework of a [Jekyll](http://jekyllrb.com/) theme for satic pages and blog posts.
 
-Welcome to your new Jekyll theme! In this directory, you'll find the files you need to be able to package up your theme into a gem. Put your layouts in `_layouts`, your includes in `_includes` and your sass in `_sass`. To experiment with this code, add some sample content and run `bundle exec jekyll serve` – this directory is setup just like a Jekyll site!
+It is based heavily on previous work by [Clay Harmon](http://www.clayharmon.com/), who provides [*tufte-jekyll*](https://github.com/clayh53/tufte-jekyll) ([MIT License](https://github.com/clayh53/tufte-jekyll/blob/master/LICENSE)) which also draws heavily on *tufte-css*, albeit with some stylistical deviations. In comparison, *tufte-css-jekyll* tries to stay as true to *tufte-css* as possible.
 
-TODO: Delete this and the text above, and describe your gem
+*tufte-css-jekyll* also makes use of a boilerplate [`rake`](https://github.com/ruby/rake) [file](LINKTOFILE) (provided by [Ellen Gummesson](http://ellengummesson.com/) at [jekyll-rake-boilerplate](https://github.com/gummesson/jekyll-rake-boilerplate)), which makes it easy to commandeer the Jekyll site via a number of easy-to-use [commands](FIXME). It alo provides a custom [Rakefile](LINKTOFILE), which makes it easy to push the site to a [GitHub page](https://pages.github.com/).
+
+## Demo page
+
+A demo-page can be found at [sdruskat.github.io/tufte-css-jekyll/](https://sdruskat.github.io/tufte-css-jekyll/). The page ["Tufte CSS"](https://sdruskat.github.io/tufte-css-jekyll/page/) on this site aims at reproducing the [*tufte-css* demo page](https://edwardtufte.github.io/tufte-css/).
 
 ## Installation
 
-Add this line to your Jekyll site's Gemfile:
-
-```ruby
-gem "tufte-css-jekyll"
-```
-
-And add this line to your Jekyll site's `_config.yml`:
-
-```yaml
-theme: tufte-css-jekyll
-```
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install tufte-css-jekyll
+[Download](https://github.com/sdruskat/tufte-css-jekyll/archive/src.zip) **FIXME provide link to release** or [clone this repository](https://github.com/sdruskat/tufte-css-jekyll.git).
 
 ## Usage
 
