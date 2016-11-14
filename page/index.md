@@ -16,7 +16,9 @@ Finally, a reminder about the goal of this project. The web is not print. Webpag
 
 To use Tufte CSS, copy `tufte.css` and the `et-book` directory of font files to your project directory, then add the following to your HTML document's `head` block:
 
-```<link rel="stylesheet" href="tufte.css"/>```
+```html
+<link rel="stylesheet" href="tufte.css"/>
+```
 
 Now you just have to use the provided CSS rules, and the Tufte CSS conventions described in this document. For best results, View Source and Inspect Element frequently.
 
@@ -68,9 +70,9 @@ Sidenotes are a great example of the web not being like print. On sufficiently l
 
 Sidenotes consist of two elements: a superscript reference number that goes inline with the text, and a sidenote with content. To add the former, just put a label and dummy checkbox into the text where you want the reference to go, like so:
 
-```
+```html
 <label for="sn-demo" class="margin-toggle sidenote-number"></label>
-<input type="checkbox" id="sn-demo" class="margin-toggle"/>
+  <input type="checkbox" id="sn-demo" class="margin-toggle"/>
 ```
 
 You must manually assign a reference `id` to each side or margin note, replacing "sn-demo" in the `for` and the `id` attribute values with an appropriate descriptor. It is useful to use prefixes like `sn-` for sidenotes and `mn-` for margin notes.
@@ -86,12 +88,13 @@ This is a margin note. Notice there isn't a number preceding the note.
 
 Margin notes are created just like sidenotes, but with the `marginnote` class for the content and the `margin-toggle` class for the label and dummy checkbox. For instance, here is the code for the margin note used in the previous paragraph:
 
-```
+```html
 <label for="mn-demo" class="margin-toggle">&amp;#8853;</label>
-<input type="checkbox" id="mn-demo" class="margin-toggle"/>
-<span class="marginnote">
-  This is a margin note. Notice there isn't a number preceding the note.
-</span></pre>
+  <input type="checkbox" id="mn-demo" class="margin-toggle"/>
+  <span class="marginnote">
+    This is a margin note. Notice there isn't a number preceding the note.
+  </span>
+```
 
 Figures in the margin are created as margin notes, as demonstrated in the next section.
 
@@ -123,7 +126,8 @@ Technical jargon, programming language terms, and code samples are denoted with 
 
 Extended code examples should use a `pre` tag with class `code`. This adds control over indentation and overflow as well:
 
-        ```;; Some code examples in Clojure. This is a comment.
+```
+        ;; Some code examples in Clojure. This is a comment.
 
 ;; applying a function to every item in the collection
 (map tufte-css blog-posts)

@@ -7,6 +7,7 @@ email: mail [at] sdruskat [dot]
 description: A Jekyll theme based on tufte-css
 markdown: kramdown
 markdown_ext: "markdown,mkdown,mkdn,mkd,md"
+highlighter: rouge
 permalink: /articles/:categories/:year/:month/:day/:title.html
 timezone: Europe/Berlin
 excerpt_separator: <!--more-->  # you can specify your own separator, of course.
