@@ -70,7 +70,7 @@ Sidenotes are a great example of the web not being like print. On sufficiently l
 
 Sidenotes consist of two elements: a superscript reference number that goes inline with the text, and a sidenote with content. To add the former, just put a label and dummy checkbox into the text where you want the reference to go, like so:
 
-```html
+```html 
 <label for="sn-demo" class="margin-toggle sidenote-number"></label>
   <input type="checkbox" id="sn-demo" class="margin-toggle"/>
 ```
