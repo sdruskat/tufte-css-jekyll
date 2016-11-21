@@ -98,36 +98,33 @@ Margin notes are created just like sidenotes, but with the `marginnote` class fo
 
 Figures in the margin are created as margin notes, as demonstrated in the next section.
 
-<h2 id="figures">Figures</h2>
+## Figures
 
 Tufte emphasizes tight integration of graphics with text. Data, graphs, and figures are kept with the text that discusses them. In print, this means they are not relegated to a separate page. On the web, that means readability of graphics and their accompanying text without extra clicks, tab-switching, or scrolling.
 
 Figures should try to use the `figure` element, which by default are constrained to the main column. Don't wrap figures in a paragraph tag. Any label or margin note goes in a regular margin note inside the figure. For example, most of the time one should introduce a figure directly into the main flow of discussion, like so:
 
-<figure>
-          <label for="mn-exports-imports" class="margin-toggle">&#8853;</label><input type="checkbox" id="mn-exports-imports" class="margin-toggle"/><span class="marginnote">From Edward Tufte, *Visual Display of Quantitative Information*, page 92.</span>
-          <img src="img/exports-imports.png" alt="Exports and Imports to and from Denmark & Norway from 1700 to 1780" />
-        </figure>
+{% maincolumn 'assets/img/exports-imports.png' 'From Edward Tufte, *Visual Display of Quantitative Information*, page 92.' %}
 
-        <label for="mn-figure-1" class="margin-toggle">&#8853;</label><input type="checkbox" id="mn-figure-1" class="margin-toggle"/><span class="marginnote"><img src="img/rhino.png" alt="Image of a Rhinoceros"/>F.J. Cole, "The History of Albrecht Dürer's Rhinoceros in Zooological Literature," *Science, Medicine, and History: Essays on the Evolution of Scientific Thought and Medical Practice* (London, 1953), ed. E. Ashworth Underwood, 337-356. From page 71 of Edward Tufte's *Visual Explanations*.</span> 
+{% marginfigure 'mf-id-whatever' 'assets/img/rhino.png' 'F.J. Cole, “The History of Albrecht Dürer’s Rhinoceros in Zoological Literature,” *Science, Medicine, and History: Essays on the Evolution of Scientific Thought and Medical Practice* (London, 1953), ed. E. Ashworth Underwood, 337-356. From page 71 of Edward Tufte’s *Visual Explanations*.' %}
 
 But tight integration of graphics with text is central to Tufte's work even when those graphics are ancillary to the main body of a text. In many of those cases, a margin figure may be most appropriate. To place figures in the margin, just wrap an image (or whatever) in a margin note inside a `p` tag, as seen to the right of this paragraph.
 
 If you need a full-width figure, give it the `fullwidth` class. Make sure that's inside an `article`, and it will take up (almost) the full width of the screen. This approach is demonstrated below using Edward Tufte's English translation of the Napoleon's March data visualization. From *Beautiful Evidence*, page 122-124.
 
+<br>
 
-<figure class="fullwidth">
-  <img src="img/napoleons-march.png" alt="Figurative map of the successive losses of the French Army in the Russian campaign, 1812-1813" />
-</figure>
+{% fullwidth 'assets/img/napoleons-march.png' "" %}
 
-<h2 id="code">Code</h2>
+## Code
 
 Technical jargon, programming language terms, and code samples are denoted with the `code` class, as I've been using in this document to denote HTML. Code needs to be monospace for formatting purposes and to aid in code analysis, but it must maintain its readability. To those ends, Tufte CSS follows GitHub's font selection, which shifts gracefully along the monospace spectrum from the elegant but rare Consolas all the way to good old reliable Courier.
 
 Extended code examples should use a `pre` tag with class `code`. This adds control over indentation and overflow as well:
 
-```
-        ;; Some code examples in Clojure. This is a comment.
+``` clojure
+
+;; Some code examples in Clojure. This is a comment.
 
 ;; applying a function to every item in the collection
 (map tufte-css blog-posts)
@@ -143,21 +140,22 @@ Extended code examples should use a `pre` tag with class `code`. This adds contr
   (prn (* b d)))
 
 ;; If this proselytizing has worked, check out:
-;; http://howistart.org/posts/clojure/1</pre>
+;; http://howistart.org/posts/clojure/1
+```
 
-<h2 id="imagequilts">ImageQuilts</h2>
+## ImageQuilts
 
-Tufte CSS provides support for Edward Tufte and Adam Schwartz's <a href="http://imagequilts.com/">ImageQuilts</a>. See the <a href="http://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0003wk">ET forum announcement thread</a> for more on quilts. Some have ragged edges, others straight. Include these images just as you would any other `figure`.
+Tufte CSS provides support for Edward Tufte and Adam Schwartz's [ImageQuilts](http://imagequilts.com/). See the [ET forum announcement thread](http://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0003wk) for more on quilts. Some have ragged edges, others straight. Include these images just as you would any other `figure`.
 
 This is an ImageQuilt surveying Chinese calligraphy, placed in a full-width figure to accomodate its girth:
 
-<figure class="fullwidth"><img src="img/imagequilt-chinese-calligraphy.png" alt="Image of Chinese Calligraphy"/></figure>
+{% fullwidth 'assets/img/imagequilt-chinese-calligraphy.png' 'CHAKKA' %}
 
 Here is an ImageQuilt of 47 animal sounds over and over, in a figure constrained to the main text region. This quilt has ragged edges, but the image itself is of course still rectangular.
 
-<figure><img src="img/imagequilt-animal-sounds.png" alt="Image of animal sounds"/></figure>
+{% maincolumn 'assets/img/imagequilt-animal-sounds.png' '' %}
 
-<h2 id="epilogue">Epilogue</h2>
+## Epilogue
 
 Many thanks go to Edward Tufte for leading the way with his work. It is only through his kind and careful editing that this project accomplishes what it does. All errors of implementation are of course mine.
 

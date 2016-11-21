@@ -18,6 +18,8 @@ A demo-page can be found at [sdruskat.github.io/tufte-css-jekyll/](https://sdrus
 
 ## Usage
 
+
+
 TODO: Write usage instructions here. Describe your available layouts, includes, and/or sass.
 
 ## Contributing
