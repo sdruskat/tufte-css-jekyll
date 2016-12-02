@@ -14,7 +14,7 @@ A demo-page can be found at [sdruskat.github.io/tufte-css-jekyll/](https://sdrus
 
 ## Installation
 
-[Download](https://github.com/sdruskat/tufte-css-jekyll/archive/src.zip) **FIXME provide link to release** or [clone this repository](https://github.com/sdruskat/tufte-css-jekyll.git).
+[Download](https://github.com/sdruskat/tufte-css-jekyll/releases) or [clone this repository](https://github.com/sdruskat/tufte-css-jekyll.git).
 
 ## Usage
 
