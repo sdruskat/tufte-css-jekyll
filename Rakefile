@@ -29,7 +29,7 @@ def execute(command)
   system "#{command}"
 end
 
-# Chech the title
+# Check the title
 def check_title(title)
   if title.nil? or title.empty?
     raise "Please add a title to your file."

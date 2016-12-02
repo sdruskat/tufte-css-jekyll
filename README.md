@@ -41,9 +41,13 @@ From the root of the project, you can run a number of commands in order to work 
 
 - `rake publish` moves a post from the `_drafts` directory to the `_posts` directory and appends the current date to it. It'll list all drafts and then you'll get to choose which draft to move by providing a number.
 
-`rake page["Title","path/to/folder"]` creates a new page. If the file path is not specified the page will get placed in the site's source directory.
+- `rake page["Title","path/to/folder"]` creates a new page. If the file path is not specified the page will get placed in the site's source directory.
 
-`rake preview` launches your default browser and then builds, serves and watches the site.
+## Deploying to [GitHub pages](https://pages.github.com/)
+
+Depending on whether you want to deploy to a project (branch `gh-pages`) or a user/organization (branch master in specific repository `user.github.io`), you can use the [`DeployToGithub.Rakefile`](TODO ADD LINK) with the respective argument.
+
+`rake DeployToGithub.Rakefile publish` will publish the page to the `gh-pages` branch of your repository, while `rake DeployToGithub.Rakefile publishmaster` will publish a user/organization page.
 
 
 ## Contributing
