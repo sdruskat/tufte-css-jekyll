@@ -6,7 +6,7 @@
 
 It is based heavily on previous work by [Clay Harmon](http://www.clayharmon.com/), who provides [*tufte-jekyll*](https://github.com/clayh53/tufte-jekyll) ([MIT License](https://github.com/clayh53/tufte-jekyll/blob/master/LICENSE)) which also draws heavily on *tufte-css*, albeit with some stylistical deviations. In comparison, *tufte-css-jekyll* tries to stay as true to *tufte-css* as possible.
 
-*tufte-css-jekyll* also makes use of a boilerplate [`rake`](https://github.com/ruby/rake) [file](LINKTOFILE) (provided by [Ellen Gummesson](http://ellengummesson.com/) at [jekyll-rake-boilerplate](https://github.com/gummesson/jekyll-rake-boilerplate)), which makes it easy to commandeer the Jekyll site via a number of easy-to-use [commands](FIXME). It alo provides a custom [Rakefile](LINKTOFILE), which makes it easy to push the site to a [GitHub page](https://pages.github.com/).
+*tufte-css-jekyll* also makes use of a boilerplate [`rake`](https://github.com/ruby/rake) [file](https://github.com/sdruskat/tufte-css-jekyll/blob/src/Rakefile) (provided by [Ellen Gummesson](http://ellengummesson.com/) at [jekyll-rake-boilerplate](https://github.com/gummesson/jekyll-rake-boilerplate)), which makes it easy to commandeer the Jekyll site via a number of easy-to-use [commands](#work-with-the-site-comfortably-with-rake). It alo provides a custom [Rakefile](https://github.com/sdruskat/tufte-css-jekyll/blob/src/DeployToGithub.Rakefile), which makes it easy to push the site to a [GitHub page](https://pages.github.com/).
 
 ## Demo page
 
@@ -43,11 +43,11 @@ From the root of the project, you can run a number of commands in order to work 
 
 - `rake page["Title","path/to/folder"]` creates a new page. If the file path is not specified the page will get placed in the site's source directory.
 
-## Deploying to [GitHub pages](https://pages.github.com/)
+### Deploying to [GitHub pages](https://pages.github.com/)
 
-Depending on whether you want to deploy to a project (branch `gh-pages`) or a user/organization (branch master in specific repository `user.github.io`), you can use the [`DeployToGithub.Rakefile`](TODO ADD LINK) with the respective argument.
+Depending on whether you want to deploy to a project (branch `gh-pages`) or a user/organization (branch master in specific repository `user.github.io`), you can use the [`DeployToGithub.Rakefile`](https://github.com/sdruskat/tufte-css-jekyll/blob/src/DeployToGithub.Rakefile) with the respective argument.
 
-`rake DeployToGithub.Rakefile publish` will publish the page to the `gh-pages` branch of your repository, while `rake DeployToGithub.Rakefile publishmaster` will publish a user/organization page.
+`rake -f DeployToGithub.Rakefile publish` will publish the page to the `gh-pages` branch of your repository, while `rake -f DeployToGithub.Rakefile publishmaster` will publish a user/organization page.
 
 In detail, this will `git commit` changes to `src` with a boilerplate commit message and `git push` to `origin/src`, then checkout `gh-pages` (or `master`), remove everything, copy the build result (in `./site`) from a tmp directory to the branch, `commit` with a timestamp, force `push` to the respective branch, an checkout `src` again.
 
