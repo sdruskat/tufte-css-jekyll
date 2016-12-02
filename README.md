@@ -22,6 +22,12 @@ The source files live in the default branch `src`. Make your changes there, and 
 
 If you are new to Jekyll, check out the [Jekyll documentation](https://jekyllrb.com/docs/home/) first.
 
+### Some theme specifics
+
+- The **large site title (and subtitle)** can be switched on/off by setting the value for `header` in `_config.yml` to false.
+
+- The **order of pages** in the menu can be determined by defining a `weight` for the pages.
+
 ### Building and testing the site
 
 In order to build and test the site with Jekyll's own tools, go the the root folder of the project on the command line and do
