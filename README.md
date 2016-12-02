@@ -18,9 +18,33 @@ A demo-page can be found at [sdruskat.github.io/tufte-css-jekyll/](https://sdrus
 
 ## Usage
 
+The source files live in the default branch `src`. Make your changes there, and you're ready to deploy.
 
+### Building and testing the site
 
-TODO: Write usage instructions here. Describe your available layouts, includes, and/or sass.
+In order to build and test the site with Jekyll's own tools, go the the root folder of the project on the command line and do
+
+```
+jekyll build
+jekyll serve -w
+```
+
+Navigate to the link provided by the Jekyll CLI and you will see the newly built page.
+
+### Work with the site comfortably with `rake`
+
+From the root of the project, you can run a number of commands in order to work with the site. They are basically those from [Ellen Gummesson](http://ellengummesson.com/)'s boilerplate' [`rake` file](https://github.com/gummesson/jekyll-rake-boilerplate). They are listed here for convenience.
+
+- `rake post["Title"]` creates a new post in the `_posts` directory by reading the default template file, adding the title you've specified and generating a filename by using the current date and the title.
+
+- `rake draft["Title"]` creates a new post in the `_drafts` directory by reading the default template file, adding the title you've specified and generating a filename.
+
+- `rake publish` moves a post from the `_drafts` directory to the `_posts` directory and appends the current date to it. It'll list all drafts and then you'll get to choose which draft to move by providing a number.
+
+`rake page["Title","path/to/folder"]` creates a new page. If the file path is not specified the page will get placed in the site's source directory.
+
+`rake preview` launches your default browser and then builds, serves and watches the site.
+
 
 ## Contributing
 
