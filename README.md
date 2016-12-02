@@ -49,18 +49,11 @@ Depending on whether you want to deploy to a project (branch `gh-pages`) or a us
 
 `rake DeployToGithub.Rakefile publish` will publish the page to the `gh-pages` branch of your repository, while `rake DeployToGithub.Rakefile publishmaster` will publish a user/organization page.
 
+In detail, this will `git commit` changes to `src` with a boilerplate commit message and `git push` to `origin/src`, then checkout `gh-pages` (or `master`), remove everything, copy the build result (in `./site`) from a tmp directory to the branch, `commit` with a timestamp, force `push` to the respective branch, an checkout `src` again.
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/hello. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
-
-## Development
-
-To set up your environment to develop this theme, run `bundle install`.
-
-You theme is setup just like a normal Jelyll site! To test your theme, run `bundle exec jekyll serve` and open your browser at `http://localhost:4000`. This starts a Jekyll server using your theme. Add pages, documents, data, etc. like normal to test your theme's contents. As you make modifications to your theme and to your content, your site will regenerate and you should see the changes in the browser after a refresh, just like normal.
-
-When your theme is released, only the files in `_layouts`, `_includes`, and `_sass` tracked with Git will be released.
+Bug reports and pull requests are welcome on GitHub at https://github.com/sdruskat/tufte-css-jekyll. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
 
 ## License
 
