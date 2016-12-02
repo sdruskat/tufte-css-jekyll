@@ -1,5 +1,0 @@
----
-title:
-layout: page
-weight: 666
----
