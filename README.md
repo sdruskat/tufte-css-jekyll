@@ -20,6 +20,8 @@ A demo-page can be found at [sdruskat.github.io/tufte-css-jekyll/](https://sdrus
 
 The source files live in the default branch `src`. Make your changes there, and you're ready to deploy.
 
+If you are new to Jekyll, check out the [Jekyll documentation](https://jekyllrb.com/docs/home/) first.
+
 ### Building and testing the site
 
 In order to build and test the site with Jekyll's own tools, go the the root folder of the project on the command line and do
