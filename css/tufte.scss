@@ -63,7 +63,7 @@ a {
 
   }
 
-p > a, cite > a, .sidenote a { 
+p > a, cite > a, .sidenote a, .credits a { 
 
 // CUSTOM
 
@@ -467,15 +467,6 @@ ul.footer-links li{
 }
 .credits{
   padding: 1rem 0rem;
-}
-
-//change font color for credit links in footer
-
-.credits{
-  font-family: $sans-font;
-    & a{
-      color: $contrast-color;
-    }
 }
 
 // End of Nav and Footer styling area

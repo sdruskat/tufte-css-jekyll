@@ -2,6 +2,7 @@
 layout: page
 title: Tufte CSS
 subtitle: Reproduction of the tufte-css demo site by Dave Liepmann
+weight: 3
 ---
 
 Tufte CSS provides tools to style web articles using the ideas demonstrated by Edward Tufte's books and handouts. Tufte's style is known for its simplicity, extensive use of sidenotes, tight integration of graphics with text, and carefully chosen typography.
@@ -149,7 +150,7 @@ Tufte CSS provides support for Edward Tufte and Adam Schwartz's [ImageQuilts](ht
 
 This is an ImageQuilt surveying Chinese calligraphy, placed in a full-width figure to accomodate its girth:
 
-{% fullwidth 'assets/img/imagequilt-chinese-calligraphy.png' 'CHAKKA' %}
+{% fullwidth 'assets/img/imagequilt-chinese-calligraphy.png' 'Chinese calligraphy quilt.' %}
 
 Here is an ImageQuilt of 47 animal sounds over and over, in a figure constrained to the main text region. This quilt has ragged edges, but the image itself is of course still rectangular.
 
