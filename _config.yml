@@ -1,5 +1,6 @@
 # Note: If you want to deploy to a GitHub user site (user.github.io), change baseurl to /
-baseurl: /tufte-css-jekyll
+url: https://kinomysli.github.io/kajdmekunad
+baseurl: "/kajdmekunad"
 title: tufte-css-jekyll
 # Whether the header (with large title and subtitle) should be displayed
 header: true
