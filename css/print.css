@@ -14,7 +14,7 @@
 
 * {
   transition: none !important;
-}
+
 
 @page {
   margin: 0.75in 0.5in 0.75in 0.5in;
@@ -23,7 +23,7 @@
 }
 body {
   font-size: 12pt;
-}
+
 
 html body span.print-footer {
   font-family: et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;

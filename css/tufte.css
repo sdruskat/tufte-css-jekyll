@@ -241,7 +241,7 @@
 * {
   margin: 0;
   padding: 0;
-}
+
 
 /* clearfix hack after Cederholm (group class name) */
 .group:after {
@@ -325,6 +325,7 @@ p > cite.epigraph {
   margin-top: 0.8rem;
 }
 
+
 body {
   width: 87.5%;
   margin-left: auto;
@@ -334,6 +335,7 @@ body {
   background-color: #fffff8;
   color: #111;
   max-width: 1400px;
+
   counter-reset: sidenote-counter;
 }
 
@@ -353,6 +355,7 @@ h1.header-title {
   line-height: 1;
 }
 
+
 h2 {
   font-style: italic;
   font-weight: 400;
@@ -369,7 +372,7 @@ h2.header-subtitle {
   font-size: 3rem;
   font-style: italic;
   line-height: 1;
-}
+
 
 h3 {
   font-style: italic;
@@ -537,6 +540,7 @@ ul, ol {
   list-style-type: none;
 }
 
+
 figure, figure img.maincolumn {
   max-width: 55%;
   -webkit-margin-start: 0;
@@ -664,7 +668,6 @@ pre, pre code, p pre code {
 .full-width .sidenote, .full-width .sidenote-number, .full-width .marginnote {
   display: none;
 }
-
 span.newthought {
   font-variant: small-caps;
   font-size: 1.2em;
@@ -691,6 +694,7 @@ label.margin-toggle:not(.sidenote-number) {
   .sidenote, .marginnote {
     display: none;
   }
+
   .margin-toggle:checked + .sidenote,
   .margin-toggle:checked + .marginnote {
     display: block;
