@@ -1,0 +1,495 @@
+<p>It’s useful sometimes to write simple versions of complex things, so that you understand them. In this post we write a simple neural network from scratch.</p>
+
+<p>In a normal classification problem, we have some labels (y) and inputs (x) and we would like to learn a linear function</p>
+
+\[y = W x\]
+
+<p>to separate the classes. Neural networks add an (or many!) extra layer</p>
+
+\[h = \mathrm{sigmoid}(M x)\]
+
+<p>between the inputs and output so that it produces is</p>
+
+\[y = W h\]
+
+<p>Thus we are esentially fitting a linear classifier on the basis expansion (\mathrm{sigmoid}(M x)), the difference being that w efit the basis expansion, as well as the linear classifier. That is the Network learns a data dependent basis on which to clssify.</p>
+
+<p>Enough with the maths, lets do some coding.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Neural networks are made up of Layers, the simplest just returns what it recieves as input.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Layer</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">
+    A building block. Each layer is capable of performing two things:
+    
+    - Process input to get output:           output = layer.forward(input)
+    
+    - Propagate gradients through itself:    grad_input = layer.backward(input, grad_output)
+    
+    Some layers also have learnable parameters which they update during layer.backward.
+    </span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">This is an identity layer so it doesn</span><span class="sh">'</span><span class="s">t need to do anything.</span><span class="sh">"""</span>
+        <span class="k">pass</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        output: Tensor of shape [batch_size, num_output_units]
+
+        </span><span class="sh">"""</span>
+        <span class="k">return</span> <span class="nb">input</span>
+
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Performs a backpropagation step through the layer, with respect to the given input.
+        
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        grad_output : Tensor of shape  [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        
+        grad_output : Tensor of shape [batch_size, num_output_units]
+        
+        </span><span class="sh">"""</span>
+        
+        <span class="n">num_units</span> <span class="o">=</span> <span class="nb">input</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="n">d_layer_d_input</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">num_units</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">grad_output</span><span class="p">,</span> <span class="n">d_layer_d_input</span><span class="p">)</span> <span class="c1"># chain rule
+</span></code></pre></div></div>
+
+<p>Lets add some non-linearity layers: a ReLU layer, and a Sigmoid layer</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ReLU</span><span class="p">(</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">ReLU layer simply applies elementwise rectified linear unit to all inputs</span><span class="sh">"""</span>
+        <span class="k">pass</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Apply elementwise ReLU to [batch, input_units] matrix
+        
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        output: Tensor of shape [batch_size, num_output_units]
+
+        </span><span class="sh">"""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">input</span><span class="p">)</span>
+        
+    
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Compute gradient of loss w.r.t. ReLU input
+                
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        grad_output : Tensor of shape  [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        
+        grad_output : Tensor of shape [batch_size, num_output_units]
+        </span><span class="sh">"""</span>
+        <span class="n">relu_grad</span> <span class="o">=</span> <span class="nb">input</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">grad_output</span><span class="o">*</span><span class="n">relu_grad</span>        
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Sigmoid</span><span class="p">(</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Sigmoid layer simply applies elementwise sigmoid unit to all inputs</span><span class="sh">"""</span>
+        <span class="k">pass</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Apply elementwise ReLU to [batch, input_units] matrix
+        
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        output: Tensor of shape [batch_size, num_output_units]
+
+        </span><span class="sh">"""</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">tanh</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+        
+    
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Compute gradient of loss w.r.t. ReLU input
+                
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        grad_output : Tensor of shape  [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        
+        grad_output : Tensor of shape [batch_size, num_output_units]
+        </span><span class="sh">"""</span>
+        <span class="n">sigmoid_grad</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">tanh</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">tanh</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">grad_output</span><span class="o">*</span><span class="n">sigmoid_grad</span>        
+</code></pre></div></div>
+
+<p>We can test this by evaluating the numerical gradients:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">eval_numerical_gradient</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">0.00001</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Evaluates gradient df/dx via finite differences:
+    df/dx ~ (f(x+h) - f(x-h)) / 2h
+    Adopted from https://github.com/ddtm/dl-course/ (our ysda course).
+    </span><span class="sh">"""</span>
+    <span class="n">fx</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># evaluate function value at original point
+</span>    <span class="n">grad</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="c1"># iterate over all indexes in x
+</span>    <span class="n">it</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">nditer</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="p">[</span><span class="sh">'</span><span class="s">multi_index</span><span class="sh">'</span><span class="p">],</span> <span class="n">op_flags</span><span class="o">=</span><span class="p">[</span><span class="sh">'</span><span class="s">readwrite</span><span class="sh">'</span><span class="p">])</span>
+    <span class="k">while</span> <span class="ow">not</span> <span class="n">it</span><span class="p">.</span><span class="n">finished</span><span class="p">:</span>
+
+        <span class="c1"># evaluate function at x+h
+</span>        <span class="n">ix</span> <span class="o">=</span> <span class="n">it</span><span class="p">.</span><span class="n">multi_index</span>
+        <span class="n">oldval</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span>
+        <span class="n">x</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span> <span class="o">=</span> <span class="n">oldval</span> <span class="o">+</span> <span class="n">h</span> <span class="c1"># increment by h
+</span>        <span class="n">fxph</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># evalute f(x + h)
+</span>        <span class="n">x</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span> <span class="o">=</span> <span class="n">oldval</span> <span class="o">-</span> <span class="n">h</span>
+        <span class="n">fxmh</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># evaluate f(x - h)
+</span>        <span class="n">x</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span> <span class="o">=</span> <span class="n">oldval</span> <span class="c1"># restore
+</span>
+        <span class="c1"># compute the partial derivative with centered formula
+</span>        <span class="n">grad</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">fxph</span> <span class="o">-</span> <span class="n">fxmh</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span> <span class="c1"># the slope
+</span>        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nf">print </span><span class="p">(</span><span class="n">ix</span><span class="p">,</span> <span class="n">grad</span><span class="p">[</span><span class="n">ix</span><span class="p">])</span>
+        <span class="n">it</span><span class="p">.</span><span class="nf">iternext</span><span class="p">()</span> <span class="c1"># step to next dimension
+</span>
+    <span class="k">return</span> <span class="n">grad</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="o">*</span><span class="mi">32</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">32</span><span class="p">])</span>
+<span class="n">l</span> <span class="o">=</span> <span class="nc">ReLU</span><span class="p">()</span>
+<span class="n">grads</span> <span class="o">=</span> <span class="n">l</span><span class="p">.</span><span class="nf">backward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">32</span><span class="p">])</span><span class="o">/</span><span class="p">(</span><span class="mi">32</span><span class="o">*</span><span class="mi">10</span><span class="p">))</span>
+<span class="n">numeric_grads</span> <span class="o">=</span> <span class="nf">eval_numerical_gradient</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">l</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">mean</span><span class="p">(),</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="n">numeric_grads</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>\
+    <span class="sh">"</span><span class="s">gradient returned by your layer does not match the numerically computed gradient</span><span class="sh">"</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="o">*</span><span class="mi">32</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">32</span><span class="p">])</span>
+<span class="n">l</span> <span class="o">=</span> <span class="nc">Sigmoid</span><span class="p">()</span>
+<span class="n">grads</span> <span class="o">=</span> <span class="n">l</span><span class="p">.</span><span class="nf">backward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">32</span><span class="p">])</span><span class="o">/</span><span class="p">(</span><span class="mi">32</span><span class="o">*</span><span class="mi">10</span><span class="p">))</span>
+<span class="n">numeric_grads</span> <span class="o">=</span> <span class="nf">eval_numerical_gradient</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">l</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">mean</span><span class="p">(),</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="n">numeric_grads</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>\
+    <span class="sh">"</span><span class="s">gradient returned by your layer does not match the numerically computed gradient</span><span class="sh">"</span>
+</code></pre></div></div>
+
+<p>The next type of layer we will implement will be a Dense or Fully Connected layer. Unlike nonlinearity, this layer actually has something to learn.</p>
+
+<p>A dense layer applies affine transformation. In a vectorized form, it can be described as:
+\(f(X)= W \cdot X + \vec b\)</p>
+
+<p>Where</p>
+<ul>
+  <li>X is an object-feature matrix of shape [batch_size, num_features],</li>
+  <li>W is a weight matrix [num_features, num_outputs]</li>
+  <li>and b is a vector of num_outputs biases.</li>
+</ul>
+
+<p>Both W and b are initialized during layer creation and updated each time backward is called.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Dense</span><span class="p">(</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">input_units</span><span class="p">,</span> <span class="n">output_units</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        A dense layer is a layer which performs a learned affine transformation:
+        f(x) = &lt;W*x&gt; + b
+        
+        Weights initialised by Xavier initialisation: http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
+        
+        </span><span class="sh">"""</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">learning_rate</span> <span class="o">=</span> <span class="n">learning_rate</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">input_units</span><span class="p">,</span> <span class="n">output_units</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="o">/</span><span class="p">(</span><span class="n">input_units</span><span class="o">+</span><span class="n">output_units</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">biases</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">output_units</span><span class="p">)</span>
+        
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="nb">input</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Perform an affine transformation:
+        f(x) = &lt;W*x&gt; + b
+        
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        output: Tensor of shape [batch_size, num_output_units]
+        </span><span class="sh">"""</span>
+        <span class="k">return</span> <span class="nb">input</span> <span class="o">@</span> <span class="n">self</span><span class="p">.</span><span class="n">weights</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">biases</span>
+    
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>  
+        <span class="sh">"""</span><span class="s">
+        Parameters
+        ----------
+        input : Tensor of shape [batch_size, num_input_units]
+        
+        Returns
+        ----------
+        grad_output: Tensor of shape [batch_size, num_output_units]
+        </span><span class="sh">"""</span>
+        <span class="n">grad_input</span> <span class="o">=</span> <span class="n">grad_output</span> <span class="o">@</span> <span class="n">self</span><span class="p">.</span><span class="n">weights</span><span class="p">.</span><span class="n">T</span>
+        
+        <span class="n">grad_weights</span> <span class="o">=</span> <span class="p">(</span><span class="nb">input</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">grad_output</span><span class="p">)</span>
+        <span class="n">grad_biases</span> <span class="o">=</span> <span class="n">grad_output</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+  
+        <span class="k">assert</span> <span class="n">grad_weights</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">self</span><span class="p">.</span><span class="n">weights</span><span class="p">.</span><span class="n">shape</span> <span class="ow">and</span> <span class="n">grad_biases</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">self</span><span class="p">.</span><span class="n">biases</span><span class="p">.</span><span class="n">shape</span>
+    
+        <span class="n">self</span><span class="p">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">weights</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">learning_rate</span> <span class="o">*</span> <span class="n">grad_weights</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">biases</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">biases</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">learning_rate</span> <span class="o">*</span> <span class="n">grad_biases</span>
+        
+        <span class="k">return</span> <span class="n">grad_input</span>
+</code></pre></div></div>
+
+<p>Next, some tests:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">l</span> <span class="o">=</span> <span class="nc">Dense</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">150</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="o">-</span><span class="mf">0.05</span> <span class="o">&lt;</span> <span class="n">l</span><span class="p">.</span><span class="n">weights</span><span class="p">.</span><span class="nf">mean</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.05</span> <span class="ow">and</span> <span class="mf">1e-3</span> <span class="o">&lt;</span> <span class="n">l</span><span class="p">.</span><span class="n">weights</span><span class="p">.</span><span class="nf">std</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">1e-1</span><span class="p">,</span>\
+    <span class="sh">"</span><span class="s">The initial weights must have zero mean and small variance. </span><span class="sh">"</span>\
+    <span class="sh">"</span><span class="s">If you know what you</span><span class="sh">'</span><span class="s">re doing, remove this assertion.</span><span class="sh">"</span>
+<span class="k">assert</span> <span class="o">-</span><span class="mf">0.05</span> <span class="o">&lt;</span> <span class="n">l</span><span class="p">.</span><span class="n">biases</span><span class="p">.</span><span class="nf">mean</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.05</span><span class="p">,</span> <span class="sh">"</span><span class="s">Biases must be zero mean. Ignore if you have a reason to do otherwise.</span><span class="sh">"</span>
+
+<span class="c1"># To test the outputs, we explicitly set weights with fixed values. DO NOT DO THAT IN ACTUAL NETWORK!
+</span><span class="n">l</span> <span class="o">=</span> <span class="nc">Dense</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="o">*</span><span class="mi">3</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+<span class="n">l</span><span class="p">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="o">*</span><span class="mi">4</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">])</span>
+<span class="n">l</span><span class="p">.</span><span class="n">biases</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">l</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span> <span class="mf">0.07272727</span><span class="p">,</span>  <span class="mf">0.41212121</span><span class="p">,</span>  <span class="mf">0.75151515</span><span class="p">,</span>  <span class="mf">1.09090909</span><span class="p">],</span>
+                                          <span class="p">[</span><span class="o">-</span><span class="mf">0.90909091</span><span class="p">,</span>  <span class="mf">0.08484848</span><span class="p">,</span>  <span class="mf">1.07878788</span><span class="p">,</span>  <span class="mf">2.07272727</span><span class="p">]]))</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="o">*</span><span class="mi">32</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">32</span><span class="p">])</span>
+<span class="n">l</span> <span class="o">=</span> <span class="nc">Dense</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="n">learning_rate</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">numeric_grads</span> <span class="o">=</span> <span class="nf">eval_numerical_gradient</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">l</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">sum</span><span class="p">(),</span><span class="n">x</span><span class="p">)</span>
+<span class="n">grads</span> <span class="o">=</span> <span class="n">l</span><span class="p">.</span><span class="nf">backward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">64</span><span class="p">]))</span>
+
+<span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span><span class="n">numeric_grads</span><span class="p">,</span><span class="n">rtol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span><span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="sh">"</span><span class="s">input gradient does not match numeric grad</span><span class="sh">"</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">compute_out_given_wb</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="n">b</span><span class="p">):</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="nc">Dense</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="n">learning_rate</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">l</span><span class="p">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+    <span class="n">l</span><span class="p">.</span><span class="n">biases</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="o">*</span><span class="mi">32</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">32</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">l</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    
+<span class="k">def</span> <span class="nf">compute_grad_by_params</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="n">b</span><span class="p">):</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="nc">Dense</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="n">learning_rate</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">l</span><span class="p">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+    <span class="n">l</span><span class="p">.</span><span class="n">biases</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="o">*</span><span class="mi">32</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">32</span><span class="p">])</span>
+    <span class="n">l</span><span class="p">.</span><span class="nf">backward</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">([</span><span class="mi">10</span><span class="p">,</span><span class="mi">64</span><span class="p">])</span> <span class="o">/</span> <span class="mf">10.</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">w</span> <span class="o">-</span> <span class="n">l</span><span class="p">.</span><span class="n">weights</span><span class="p">,</span> <span class="n">b</span> <span class="o">-</span> <span class="n">l</span><span class="p">.</span><span class="n">biases</span>
+    
+<span class="n">w</span><span class="p">,</span><span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">64</span><span class="p">)</span>
+
+<span class="n">numeric_dw</span> <span class="o">=</span> <span class="nf">eval_numerical_gradient</span><span class="p">(</span><span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="nf">compute_out_given_wb</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="n">b</span><span class="p">).</span><span class="nf">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">).</span><span class="nf">sum</span><span class="p">(),</span><span class="n">w</span> <span class="p">)</span>
+<span class="n">numeric_db</span> <span class="o">=</span> <span class="nf">eval_numerical_gradient</span><span class="p">(</span><span class="k">lambda</span> <span class="n">b</span><span class="p">:</span> <span class="nf">compute_out_given_wb</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="n">b</span><span class="p">).</span><span class="nf">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">).</span><span class="nf">sum</span><span class="p">(),</span><span class="n">b</span> <span class="p">)</span>
+<span class="n">grad_w</span><span class="p">,</span><span class="n">grad_b</span> <span class="o">=</span> <span class="nf">compute_grad_by_params</span><span class="p">(</span><span class="n">w</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">numeric_dw</span><span class="p">,</span><span class="n">grad_w</span><span class="p">,</span><span class="n">rtol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span><span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="sh">"</span><span class="s">weight gradient does not match numeric weight gradient</span><span class="sh">"</span>
+<span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">numeric_db</span><span class="p">,</span><span class="n">grad_b</span><span class="p">,</span><span class="n">rtol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span><span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="sh">"</span><span class="s">weight gradient does not match numeric weight gradient</span><span class="sh">"</span>
+</code></pre></div></div>
+
+<p>We will optimise the following loss, which is a more numerically stable version of logg loss (courtesy of Coursera advanced ML):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">softmax_crossentropy_with_logits</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">reference_answers</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Compute crossentropy from logits[batch,n_classes] and ids of correct answers</span><span class="sh">"""</span>
+    <span class="n">logits_for_answers</span> <span class="o">=</span> <span class="n">logits</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">logits</span><span class="p">)),</span><span class="n">reference_answers</span><span class="p">]</span>
+    
+    <span class="n">xentropy</span> <span class="o">=</span> <span class="o">-</span> <span class="n">logits_for_answers</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">logits</span><span class="p">),</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">xentropy</span>
+
+<span class="k">def</span> <span class="nf">grad_softmax_crossentropy_with_logits</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">reference_answers</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Compute crossentropy gradient from logits[batch,n_classes] and ids of correct answers</span><span class="sh">"""</span>
+    <span class="n">ones_for_answers</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">logits</span><span class="p">)</span>
+    <span class="n">ones_for_answers</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">logits</span><span class="p">)),</span><span class="n">reference_answers</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    
+    <span class="n">softmax</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">logits</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">logits</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span><span class="n">keepdims</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    
+    <span class="nf">return </span><span class="p">(</span><span class="o">-</span> <span class="n">ones_for_answers</span> <span class="o">+</span> <span class="n">softmax</span><span class="p">)</span> <span class="o">/</span> <span class="n">logits</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">logits</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">500</span><span class="p">).</span><span class="nf">reshape</span><span class="p">([</span><span class="mi">50</span><span class="p">,</span><span class="mi">10</span><span class="p">])</span>
+<span class="n">answers</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span><span class="o">%</span><span class="mi">10</span>
+
+<span class="nf">softmax_crossentropy_with_logits</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span><span class="n">answers</span><span class="p">)</span>
+<span class="n">grads</span> <span class="o">=</span> <span class="nf">grad_softmax_crossentropy_with_logits</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span><span class="n">answers</span><span class="p">)</span>
+<span class="n">numeric_grads</span> <span class="o">=</span> <span class="nf">eval_numerical_gradient</span><span class="p">(</span><span class="k">lambda</span> <span class="n">l</span><span class="p">:</span> <span class="nf">softmax_crossentropy_with_logits</span><span class="p">(</span><span class="n">l</span><span class="p">,</span><span class="n">answers</span><span class="p">).</span><span class="nf">mean</span><span class="p">(),</span><span class="n">logits</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">numeric_grads</span><span class="p">,</span><span class="n">grads</span><span class="p">,</span><span class="n">rtol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span><span class="n">atol</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>We’ll use the following function to load the mnist dataset:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">load_dataset</span><span class="p">(</span><span class="n">flatten</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="n">keras</span>
+    <span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">),</span> <span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span> <span class="o">=</span> <span class="n">keras</span><span class="p">.</span><span class="n">datasets</span><span class="p">.</span><span class="n">mnist</span><span class="p">.</span><span class="nf">load_data</span><span class="p">()</span>
+
+    <span class="c1"># normalize x
+</span>    <span class="n">X_train</span> <span class="o">=</span> <span class="n">X_train</span><span class="p">.</span><span class="nf">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="mf">255.</span>
+    <span class="n">X_test</span> <span class="o">=</span> <span class="n">X_test</span><span class="p">.</span><span class="nf">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="mf">255.</span>
+
+    <span class="c1"># we reserve the last 10000 training examples for validation
+</span>    <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val</span> <span class="o">=</span> <span class="n">X_train</span><span class="p">[:</span><span class="o">-</span><span class="mi">10000</span><span class="p">],</span> <span class="n">X_train</span><span class="p">[</span><span class="o">-</span><span class="mi">10000</span><span class="p">:]</span>
+    <span class="n">y_train</span><span class="p">,</span> <span class="n">y_val</span> <span class="o">=</span> <span class="n">y_train</span><span class="p">[:</span><span class="o">-</span><span class="mi">10000</span><span class="p">],</span> <span class="n">y_train</span><span class="p">[</span><span class="o">-</span><span class="mi">10000</span><span class="p">:]</span>
+
+    <span class="k">if</span> <span class="n">flatten</span><span class="p">:</span>
+        <span class="n">X_train</span> <span class="o">=</span> <span class="n">X_train</span><span class="p">.</span><span class="nf">reshape</span><span class="p">([</span><span class="n">X_train</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">X_val</span> <span class="o">=</span> <span class="n">X_val</span><span class="p">.</span><span class="nf">reshape</span><span class="p">([</span><span class="n">X_val</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">X_test</span> <span class="o">=</span> <span class="n">X_test</span><span class="p">.</span><span class="nf">reshape</span><span class="p">([</span><span class="n">X_test</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span> <span class="o">=</span> <span class="nf">load_dataset</span><span class="p">(</span><span class="n">flatten</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/thomas.kealy/anaconda3/lib/python3.6/site-packages/h5py/__init__.py:36: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  from ._conv import register_converters as _register_converters
+Using TensorFlow backend.
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Network</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">network</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">network</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">Dense</span><span class="p">(</span><span class="n">X_train</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="mi">100</span><span class="p">))</span>
+        <span class="n">network</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">ReLU</span><span class="p">())</span>
+        <span class="n">network</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">Dense</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span><span class="mi">200</span><span class="p">))</span>
+        <span class="n">network</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">ReLU</span><span class="p">())</span>
+        <span class="n">network</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">Dense</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span><span class="mi">10</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">network</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        comppute activations of all network layers by applying them sequentially.
+        Return a list of activations for each layer. 
+        Make sure last activation corresponds to network logits.
+        </span><span class="sh">"""</span>
+        <span class="n">activations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="nb">input</span> <span class="o">=</span> <span class="n">X</span>
+
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">network</span><span class="p">:</span>
+            <span class="n">activations</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">layer</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="nb">input</span><span class="p">))</span>
+            <span class="nb">input</span> <span class="o">=</span> <span class="n">activations</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="k">assert</span> <span class="nf">len</span><span class="p">(</span><span class="n">activations</span><span class="p">)</span> <span class="o">==</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">network</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">activations</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="n">X</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Compute network predictions.
+        </span><span class="sh">"""</span>
+        <span class="n">logits</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">X</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">logits</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="n">X</span><span class="p">,</span><span class="n">y</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Train your network on a given batch of X and y.
+        You first need to run forward to get all layer activations.
+        Then you can run layer.backward going from last to first layer.
+    
+        After you called backward for all layers, all Dense layers have already made one gradient step.
+        </span><span class="sh">"""</span>
+    
+        <span class="c1"># Get the layer activations
+</span>        <span class="n">layer_activations</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">layer_inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="p">]</span><span class="o">+</span><span class="n">layer_activations</span>
+        <span class="n">logits</span> <span class="o">=</span> <span class="n">layer_activations</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    
+        <span class="c1"># Compute the loss and the initial gradient
+</span>        <span class="n">loss</span> <span class="o">=</span> <span class="nf">softmax_crossentropy_with_logits</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">loss_grad</span> <span class="o">=</span> <span class="nf">grad_softmax_crossentropy_with_logits</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span><span class="n">y</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">layer_i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">network</span><span class="p">))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">layer</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">network</span><span class="p">[</span><span class="n">layer_i</span><span class="p">]</span>
+        
+            <span class="n">loss_grad</span> <span class="o">=</span> <span class="n">layer</span><span class="p">.</span><span class="nf">backward</span><span class="p">(</span><span class="n">layer_inputs</span><span class="p">[</span><span class="n">layer_i</span><span class="p">],</span><span class="n">loss_grad</span><span class="p">)</span> 
+            
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Finally, we can train our nework!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">tqdm</span> <span class="kn">import</span> <span class="n">trange</span>
+<span class="k">def</span> <span class="nf">iterate_minibatches</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="nf">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="o">==</span> <span class="nf">len</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">shuffle</span><span class="p">:</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">permutation</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">start_idx</span> <span class="ow">in</span> <span class="nf">trange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-</span> <span class="n">batchsize</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">shuffle</span><span class="p">:</span>
+            <span class="n">excerpt</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">start_idx</span> <span class="o">+</span> <span class="n">batchsize</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">excerpt</span> <span class="o">=</span> <span class="nf">slice</span><span class="p">(</span><span class="n">start_idx</span><span class="p">,</span> <span class="n">start_idx</span> <span class="o">+</span> <span class="n">batchsize</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">inputs</span><span class="p">[</span><span class="n">excerpt</span><span class="p">],</span> <span class="n">targets</span><span class="p">[</span><span class="n">excerpt</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">IPython.display</span> <span class="kn">import</span> <span class="n">clear_output</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+<span class="n">network</span> <span class="o">=</span> <span class="nc">Network</span><span class="p">()</span>
+<span class="n">train_log</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">val_log</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">25</span><span class="p">):</span>
+
+    <span class="k">for</span> <span class="n">x_batch</span><span class="p">,</span><span class="n">y_batch</span> <span class="ow">in</span> <span class="nf">iterate_minibatches</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span><span class="n">y_train</span><span class="p">,</span><span class="n">batchsize</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span><span class="n">shuffle</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="n">network</span><span class="p">.</span><span class="nf">fit</span><span class="p">(</span><span class="n">x_batch</span><span class="p">,</span><span class="n">y_batch</span><span class="p">)</span>
+    
+    <span class="n">train_log</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">network</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span><span class="o">==</span><span class="n">y_train</span><span class="p">))</span>
+    <span class="n">val_log</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">network</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">X_val</span><span class="p">)</span><span class="o">==</span><span class="n">y_val</span><span class="p">))</span>
+    
+    <span class="nf">clear_output</span><span class="p">()</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Epoch</span><span class="sh">"</span><span class="p">,</span><span class="n">epoch</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Train accuracy:</span><span class="sh">"</span><span class="p">,</span><span class="n">train_log</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Val accuracy:</span><span class="sh">"</span><span class="p">,</span><span class="n">val_log</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">train_log</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">train accuracy</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">val_log</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">val accuracy</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="sh">'</span><span class="s">best</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">grid</span><span class="p">()</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Epoch 24
+Train accuracy: 1.0
+Val accuracy: 0.9819
+</code></pre></div></div>
+
+<p><img src="2021-06-21-Neural-Netwroks-From-Scratch_files/2021-06-21-Neural-Netwroks-From-Scratch_26_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>

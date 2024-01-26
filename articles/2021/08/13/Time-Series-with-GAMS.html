@@ -1,0 +1,118 @@
+<p>This is a short post introducing Generalised Additive Models (GAMs) - not the nuts and bolts, but some things you can do with them. We will be follwoing this post: https://petolau.github.io/Analyzing-double-seasonal-time-series-with-GAM-in-R/ but we won’t go so deep into the theory, all the data come from the github repository linked in the post.</p>
+
+<p>GAMs are a very flexible modelling technique, but unfortunately there isn’t a Python package as good as R’s <code class="language-plaintext highlighter-rouge">mgcv</code> yet. It’s something we’re working on! In this post, I’ll fit a simple GAM using <code class="language-plaintext highlighter-rouge">PyGAM</code> and in a later post I’ll talk about some theory, and some extensions.</p>
+
+<p>GAMs are smooth, semi-parametric models of the form:</p>
+
+\[y = \sum_{i=0}^{n-1} \beta_i f_i\left(x_i\right)\]
+
+<p>where \(y\) is the dependent variable, \(x_i\) are the independent variables, \(\beta\) are the model coefficients, and \(f_i\) are the feature functions. We build the \(f_i\) using a type of function called a spline; splines allow us to automatically model non-linear relationships without having to manually try out many different transformations on each variable.</p>
+
+<p>Nedt we’ll load some data and fit a GAM!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">feather</span>
+<span class="kn">from</span> <span class="n">pygam</span> <span class="kn">import</span> <span class="n">LinearGAM</span>
+<span class="kn">from</span> <span class="n">pygam.utils</span> <span class="kn">import</span> <span class="n">generate_X_grid</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+<span class="o">%</span><span class="n">config</span> <span class="n">InlineBackend</span><span class="p">.</span><span class="n">figure_format</span> <span class="o">=</span> <span class="sh">'</span><span class="s">retina</span><span class="sh">'</span>
+<span class="n">plt</span><span class="p">.</span><span class="n">style</span><span class="p">.</span><span class="nf">use</span><span class="p">([</span><span class="sh">'</span><span class="s">seaborn-colorblind</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">seaborn-darkgrid</span><span class="sh">'</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="nb">file</span><span class="p">):</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">feather</span><span class="p">.</span><span class="nf">read_dataframe</span><span class="p">(</span><span class="nb">file</span><span class="p">)</span>
+
+    <span class="n">weekday_map</span> <span class="o">=</span> <span class="p">{</span><span class="sh">'</span><span class="s">Monday</span><span class="sh">'</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="sh">'</span><span class="s">Tuesday</span><span class="sh">'</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="sh">'</span><span class="s">Wednesday</span><span class="sh">'</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="sh">'</span><span class="s">Thursday</span><span class="sh">'</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span> <span class="sh">'</span><span class="s">Friday</span><span class="sh">'</span><span class="p">:</span><span class="mi">5</span><span class="p">,</span> <span class="sh">'</span><span class="s">Saturday</span><span class="sh">'</span><span class="p">:</span><span class="mi">6</span><span class="p">,</span> <span class="sh">'</span><span class="s">Sunday</span><span class="sh">'</span><span class="p">:</span><span class="mi">7</span><span class="p">}</span>
+    <span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">weekday</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">week</span><span class="sh">'</span><span class="p">].</span><span class="nf">map</span><span class="p">(</span><span class="n">weekday_map</span><span class="p">)</span>
+
+    <span class="n">n_type</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">unique</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">])</span>
+    <span class="n">n_date</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">unique</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">date_time</span><span class="sh">'</span><span class="p">])</span>
+    <span class="n">n_weekdays</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">unique</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">weekday</span><span class="sh">'</span><span class="p">])</span>
+    <span class="n">period</span> <span class="o">=</span> <span class="mi">48</span>
+    <span class="n">begin</span> <span class="o">=</span> <span class="sh">"</span><span class="s">2012-02-27</span><span class="sh">"</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="sh">"</span><span class="s">2012-03-12</span><span class="sh">"</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">date_time</span><span class="sh">'</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">begin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">date_time</span><span class="sh">'</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">df</span><span class="p">.</span><span class="n">loc</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="n">n_type</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="nf">load_data</span><span class="p">(</span><span class="sh">'</span><span class="s">DT_4_ind.dms</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="n">data</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="sh">'</span><span class="s">date_time</span><span class="sh">'</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="sh">'</span><span class="s">value</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/thomas.kealy/anaconda3/lib/python3.6/site-packages/ipykernel_launcher.py:16: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  app.launch_new_instance()
+
+
+
+
+
+&lt;matplotlib.axes._subplots.AxesSubplot at 0x11f0bbac8&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Time-Series-with-GAMS_files/2021-08-13-Time-Series-with-GAMS_2_2.png" alt="png" /></p>
+
+<p>The above code loads some data, and does a little bit of preprocessing - makes weekday names more legible to humans, and just selects a few weeks of data about ‘Commerical Properties’. You can see that the time series has a lot of structure - exhibiting daily, but also weekly periodicity. There are 48 measurements during the day and 7 days during the week so that will be our independent variables to model response variable - electricity load. Let’s build it!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">period</span> <span class="o">=</span> <span class="mi">48</span>
+<span class="n">N</span> <span class="o">=</span> <span class="n">data</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># number of observations in the train set
+</span><span class="n">window</span> <span class="o">=</span> <span class="n">N</span> <span class="o">/</span> <span class="n">period</span> <span class="c1"># number of days in the train set
+</span>
+<span class="n">weekly</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">weekday</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">period</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">daily</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">tile</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nf">int</span><span class="p">(</span><span class="n">window</span><span class="p">))</span>
+
+<span class="n">matrix_gam</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="sh">'</span><span class="s">daily</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">weekly</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">load</span><span class="sh">'</span><span class="p">])</span>
+<span class="n">matrix_gam</span><span class="p">[</span><span class="sh">'</span><span class="s">load</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">value</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">matrix_gam</span><span class="p">[</span><span class="sh">'</span><span class="s">daily</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">daily</span>
+<span class="n">matrix_gam</span><span class="p">[</span><span class="sh">'</span><span class="s">weekly</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">weekly</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">gam</span> <span class="o">=</span> <span class="nc">LinearGAM</span><span class="p">(</span><span class="n">n_splines</span><span class="o">=</span><span class="mi">10</span><span class="p">).</span><span class="nf">gridsearch</span><span class="p">(</span><span class="n">matrix_gam</span><span class="p">[[</span><span class="sh">'</span><span class="s">daily</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">weekly</span><span class="sh">'</span><span class="p">]],</span> <span class="n">matrix_gam</span><span class="p">[</span><span class="sh">'</span><span class="s">load</span><span class="sh">'</span><span class="p">])</span>
+<span class="n">XX</span> <span class="o">=</span> <span class="nf">generate_X_grid</span><span class="p">(</span><span class="n">gam</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>100% (11 of 11) |#########################| Elapsed Time: 0:00:00 Time: 0:00:00
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">.</span><span class="nf">set_figheight</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">.</span><span class="nf">set_figwidth</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>
+<span class="n">titles</span> <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">daily</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">weekly</span><span class="sh">'</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ax</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">axs</span><span class="p">):</span>
+    <span class="n">pdep</span><span class="p">,</span> <span class="n">confi</span> <span class="o">=</span> <span class="n">gam</span><span class="p">.</span><span class="nf">partial_dependence</span><span class="p">(</span><span class="n">XX</span><span class="p">,</span> <span class="n">feature</span><span class="o">=</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="p">.</span><span class="mi">95</span><span class="p">)</span>
+    <span class="n">confi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">confi</span><span class="p">)</span>
+    <span class="n">confi</span> <span class="o">=</span> <span class="n">confi</span><span class="p">.</span><span class="nf">squeeze</span><span class="p">()</span>
+    <span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">XX</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">pdep</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">XX</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">confi</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">,</span> <span class="n">ls</span><span class="o">=</span><span class="sh">'</span><span class="s">--</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="n">titles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Time-Series-with-GAMS_files/2021-08-13-Time-Series-with-GAMS_6_0.png" alt="png" /></p>
+
+<p>This is good! You can see that the electricity load follows an approximate <code class="language-plaintext highlighter-rouge">sin</code> pattern during the day, and that the electricity load falls off during the week! If we’d tried using a linear model to do this, we’d have had to build these features manually - the good thing about GAMs is that they do this for us. Let’s visualise the fit.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">predictions</span> <span class="o">=</span> <span class="n">gam</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">matrix_gam</span><span class="p">[[</span><span class="sh">'</span><span class="s">daily</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">weekly</span><span class="sh">'</span><span class="p">]])</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">date_time</span><span class="sh">'</span><span class="p">],</span> <span class="n">matrix_gam</span><span class="p">[</span><span class="sh">'</span><span class="s">load</span><span class="sh">'</span><span class="p">])</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">date_time</span><span class="sh">'</span><span class="p">],</span> <span class="n">predictions</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xticks</span><span class="p">(</span><span class="n">rotation</span><span class="o">=</span><span class="sh">'</span><span class="s">vertical</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">legend</span><span class="p">([</span><span class="sh">'</span><span class="s">True</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Predicted</span><span class="sh">'</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.legend.Legend at 0x11eb87f28&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Time-Series-with-GAMS_files/2021-08-13-Time-Series-with-GAMS_9_1.png" alt="png" /></p>
+
+<p>Alas, this isn’t the best fit, but it’ll do!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>

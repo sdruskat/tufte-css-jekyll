@@ -1,0 +1,2904 @@
+<h1 id="pipelines-and-pandas">Pipelines and Pandas</h1>
+
+<p>This is a short post about how to use Scikit-Learn Pipelines so that you have ‘Pandas in, pandas out’. I’ll build a small data pipeline on the Ames Iowa housing dataset. The first thing is to import the dataset, and inspect it! The data has 82 columns which include 23 nominal, 23 ordinal, 14 discrete, and 20 continuous variables (and 2 additional observation identifiers).</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">sklearn.base</span> <span class="kn">import</span> <span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ames</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">ames.csv</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ames</span><span class="p">.</span><span class="nf">head</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Order</th>
+      <th>PID</th>
+      <th>MS.SubClass</th>
+      <th>MS.Zoning</th>
+      <th>Lot.Frontage</th>
+      <th>Lot.Area</th>
+      <th>Street</th>
+      <th>Alley</th>
+      <th>Lot.Shape</th>
+      <th>Land.Contour</th>
+      <th>...</th>
+      <th>Pool.Area</th>
+      <th>Pool.QC</th>
+      <th>Fence</th>
+      <th>Misc.Feature</th>
+      <th>Misc.Val</th>
+      <th>Mo.Sold</th>
+      <th>Yr.Sold</th>
+      <th>Sale.Type</th>
+      <th>Sale.Condition</th>
+      <th>SalePrice</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>526301100</td>
+      <td>20</td>
+      <td>RL</td>
+      <td>141.0</td>
+      <td>31770</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>IR1</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>5</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>215000</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>526350040</td>
+      <td>20</td>
+      <td>RH</td>
+      <td>80.0</td>
+      <td>11622</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>Reg</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>MnPrv</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>6</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>105000</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>526351010</td>
+      <td>20</td>
+      <td>RL</td>
+      <td>81.0</td>
+      <td>14267</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>IR1</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>Gar2</td>
+      <td>12500</td>
+      <td>6</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>172000</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>526353030</td>
+      <td>20</td>
+      <td>RL</td>
+      <td>93.0</td>
+      <td>11160</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>Reg</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>4</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>244000</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>527105010</td>
+      <td>60</td>
+      <td>RL</td>
+      <td>74.0</td>
+      <td>13830</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>IR1</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>MnPrv</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>3</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>189900</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>6</td>
+      <td>527105030</td>
+      <td>60</td>
+      <td>RL</td>
+      <td>78.0</td>
+      <td>9978</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>IR1</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>6</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>195500</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>7</td>
+      <td>527127150</td>
+      <td>120</td>
+      <td>RL</td>
+      <td>41.0</td>
+      <td>4920</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>Reg</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>4</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>213500</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>8</td>
+      <td>527145080</td>
+      <td>120</td>
+      <td>RL</td>
+      <td>43.0</td>
+      <td>5005</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>IR1</td>
+      <td>HLS</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>1</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>191500</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>9</td>
+      <td>527146030</td>
+      <td>120</td>
+      <td>RL</td>
+      <td>39.0</td>
+      <td>5389</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>IR1</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>3</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>236500</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>10</td>
+      <td>527162130</td>
+      <td>60</td>
+      <td>RL</td>
+      <td>60.0</td>
+      <td>7500</td>
+      <td>Pave</td>
+      <td>NaN</td>
+      <td>Reg</td>
+      <td>Lvl</td>
+      <td>...</td>
+      <td>0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>0</td>
+      <td>6</td>
+      <td>2010</td>
+      <td>WD</td>
+      <td>Normal</td>
+      <td>189000</td>
+    </tr>
+  </tbody>
+</table>
+<p>10 rows × 82 columns</p>
+</div>
+
+<p>It’s always a good idea to set an index on a DataFrame if you have one. In this case, the <code class="language-plaintext highlighter-rouge">PID</code> column is a unique identifier.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ames</span> <span class="o">=</span> <span class="n">ames</span><span class="p">.</span><span class="nf">set_index</span><span class="p">(</span><span class="sh">'</span><span class="s">PID</span><span class="sh">'</span><span class="p">).</span><span class="nf">copy</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ames</span><span class="p">.</span><span class="nf">describe</span><span class="p">().</span><span class="n">T</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>count</th>
+      <th>mean</th>
+      <th>std</th>
+      <th>min</th>
+      <th>25%</th>
+      <th>50%</th>
+      <th>75%</th>
+      <th>max</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Order</th>
+      <td>2930.0</td>
+      <td>1465.500000</td>
+      <td>845.962470</td>
+      <td>1.0</td>
+      <td>733.25</td>
+      <td>1465.5</td>
+      <td>2197.75</td>
+      <td>2930.0</td>
+    </tr>
+    <tr>
+      <th>MS.SubClass</th>
+      <td>2930.0</td>
+      <td>57.387372</td>
+      <td>42.638025</td>
+      <td>20.0</td>
+      <td>20.00</td>
+      <td>50.0</td>
+      <td>70.00</td>
+      <td>190.0</td>
+    </tr>
+    <tr>
+      <th>Lot.Frontage</th>
+      <td>2440.0</td>
+      <td>69.224590</td>
+      <td>23.365335</td>
+      <td>21.0</td>
+      <td>58.00</td>
+      <td>68.0</td>
+      <td>80.00</td>
+      <td>313.0</td>
+    </tr>
+    <tr>
+      <th>Lot.Area</th>
+      <td>2930.0</td>
+      <td>10147.921843</td>
+      <td>7880.017759</td>
+      <td>1300.0</td>
+      <td>7440.25</td>
+      <td>9436.5</td>
+      <td>11555.25</td>
+      <td>215245.0</td>
+    </tr>
+    <tr>
+      <th>Overall.Qual</th>
+      <td>2930.0</td>
+      <td>6.094881</td>
+      <td>1.411026</td>
+      <td>1.0</td>
+      <td>5.00</td>
+      <td>6.0</td>
+      <td>7.00</td>
+      <td>10.0</td>
+    </tr>
+    <tr>
+      <th>Overall.Cond</th>
+      <td>2930.0</td>
+      <td>5.563140</td>
+      <td>1.111537</td>
+      <td>1.0</td>
+      <td>5.00</td>
+      <td>5.0</td>
+      <td>6.00</td>
+      <td>9.0</td>
+    </tr>
+    <tr>
+      <th>Year.Built</th>
+      <td>2930.0</td>
+      <td>1971.356314</td>
+      <td>30.245361</td>
+      <td>1872.0</td>
+      <td>1954.00</td>
+      <td>1973.0</td>
+      <td>2001.00</td>
+      <td>2010.0</td>
+    </tr>
+    <tr>
+      <th>Year.Remod.Add</th>
+      <td>2930.0</td>
+      <td>1984.266553</td>
+      <td>20.860286</td>
+      <td>1950.0</td>
+      <td>1965.00</td>
+      <td>1993.0</td>
+      <td>2004.00</td>
+      <td>2010.0</td>
+    </tr>
+    <tr>
+      <th>Mas.Vnr.Area</th>
+      <td>2907.0</td>
+      <td>101.896801</td>
+      <td>179.112611</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>164.00</td>
+      <td>1600.0</td>
+    </tr>
+    <tr>
+      <th>BsmtFin.SF.1</th>
+      <td>2929.0</td>
+      <td>442.629566</td>
+      <td>455.590839</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>370.0</td>
+      <td>734.00</td>
+      <td>5644.0</td>
+    </tr>
+    <tr>
+      <th>BsmtFin.SF.2</th>
+      <td>2929.0</td>
+      <td>49.722431</td>
+      <td>169.168476</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>1526.0</td>
+    </tr>
+    <tr>
+      <th>Bsmt.Unf.SF</th>
+      <td>2929.0</td>
+      <td>559.262547</td>
+      <td>439.494153</td>
+      <td>0.0</td>
+      <td>219.00</td>
+      <td>466.0</td>
+      <td>802.00</td>
+      <td>2336.0</td>
+    </tr>
+    <tr>
+      <th>Total.Bsmt.SF</th>
+      <td>2929.0</td>
+      <td>1051.614544</td>
+      <td>440.615067</td>
+      <td>0.0</td>
+      <td>793.00</td>
+      <td>990.0</td>
+      <td>1302.00</td>
+      <td>6110.0</td>
+    </tr>
+    <tr>
+      <th>X1st.Flr.SF</th>
+      <td>2930.0</td>
+      <td>1159.557679</td>
+      <td>391.890885</td>
+      <td>334.0</td>
+      <td>876.25</td>
+      <td>1084.0</td>
+      <td>1384.00</td>
+      <td>5095.0</td>
+    </tr>
+    <tr>
+      <th>X2nd.Flr.SF</th>
+      <td>2930.0</td>
+      <td>335.455973</td>
+      <td>428.395715</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>703.75</td>
+      <td>2065.0</td>
+    </tr>
+    <tr>
+      <th>Low.Qual.Fin.SF</th>
+      <td>2930.0</td>
+      <td>4.676792</td>
+      <td>46.310510</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>1064.0</td>
+    </tr>
+    <tr>
+      <th>Gr.Liv.Area</th>
+      <td>2930.0</td>
+      <td>1499.690444</td>
+      <td>505.508887</td>
+      <td>334.0</td>
+      <td>1126.00</td>
+      <td>1442.0</td>
+      <td>1742.75</td>
+      <td>5642.0</td>
+    </tr>
+    <tr>
+      <th>Bsmt.Full.Bath</th>
+      <td>2928.0</td>
+      <td>0.431352</td>
+      <td>0.524820</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>Bsmt.Half.Bath</th>
+      <td>2928.0</td>
+      <td>0.061134</td>
+      <td>0.245254</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>Full.Bath</th>
+      <td>2930.0</td>
+      <td>1.566553</td>
+      <td>0.552941</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>2.0</td>
+      <td>2.00</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>Half.Bath</th>
+      <td>2930.0</td>
+      <td>0.379522</td>
+      <td>0.502629</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>Bedroom.AbvGr</th>
+      <td>2930.0</td>
+      <td>2.854266</td>
+      <td>0.827731</td>
+      <td>0.0</td>
+      <td>2.00</td>
+      <td>3.0</td>
+      <td>3.00</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <th>Kitchen.AbvGr</th>
+      <td>2930.0</td>
+      <td>1.044369</td>
+      <td>0.214076</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>1.0</td>
+      <td>1.00</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>TotRms.AbvGrd</th>
+      <td>2930.0</td>
+      <td>6.443003</td>
+      <td>1.572964</td>
+      <td>2.0</td>
+      <td>5.00</td>
+      <td>6.0</td>
+      <td>7.00</td>
+      <td>15.0</td>
+    </tr>
+    <tr>
+      <th>Fireplaces</th>
+      <td>2930.0</td>
+      <td>0.599317</td>
+      <td>0.647921</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>1.0</td>
+      <td>1.00</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>Garage.Yr.Blt</th>
+      <td>2771.0</td>
+      <td>1978.132443</td>
+      <td>25.528411</td>
+      <td>1895.0</td>
+      <td>1960.00</td>
+      <td>1979.0</td>
+      <td>2002.00</td>
+      <td>2207.0</td>
+    </tr>
+    <tr>
+      <th>Garage.Cars</th>
+      <td>2929.0</td>
+      <td>1.766815</td>
+      <td>0.760566</td>
+      <td>0.0</td>
+      <td>1.00</td>
+      <td>2.0</td>
+      <td>2.00</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <th>Garage.Area</th>
+      <td>2929.0</td>
+      <td>472.819734</td>
+      <td>215.046549</td>
+      <td>0.0</td>
+      <td>320.00</td>
+      <td>480.0</td>
+      <td>576.00</td>
+      <td>1488.0</td>
+    </tr>
+    <tr>
+      <th>Wood.Deck.SF</th>
+      <td>2930.0</td>
+      <td>93.751877</td>
+      <td>126.361562</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>168.00</td>
+      <td>1424.0</td>
+    </tr>
+    <tr>
+      <th>Open.Porch.SF</th>
+      <td>2930.0</td>
+      <td>47.533447</td>
+      <td>67.483400</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>27.0</td>
+      <td>70.00</td>
+      <td>742.0</td>
+    </tr>
+    <tr>
+      <th>Enclosed.Porch</th>
+      <td>2930.0</td>
+      <td>23.011604</td>
+      <td>64.139059</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>1012.0</td>
+    </tr>
+    <tr>
+      <th>X3Ssn.Porch</th>
+      <td>2930.0</td>
+      <td>2.592491</td>
+      <td>25.141331</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>508.0</td>
+    </tr>
+    <tr>
+      <th>Screen.Porch</th>
+      <td>2930.0</td>
+      <td>16.002048</td>
+      <td>56.087370</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>576.0</td>
+    </tr>
+    <tr>
+      <th>Pool.Area</th>
+      <td>2930.0</td>
+      <td>2.243345</td>
+      <td>35.597181</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>800.0</td>
+    </tr>
+    <tr>
+      <th>Misc.Val</th>
+      <td>2930.0</td>
+      <td>50.635154</td>
+      <td>566.344288</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>17000.0</td>
+    </tr>
+    <tr>
+      <th>Mo.Sold</th>
+      <td>2930.0</td>
+      <td>6.216041</td>
+      <td>2.714492</td>
+      <td>1.0</td>
+      <td>4.00</td>
+      <td>6.0</td>
+      <td>8.00</td>
+      <td>12.0</td>
+    </tr>
+    <tr>
+      <th>Yr.Sold</th>
+      <td>2930.0</td>
+      <td>2007.790444</td>
+      <td>1.316613</td>
+      <td>2006.0</td>
+      <td>2007.00</td>
+      <td>2008.0</td>
+      <td>2009.00</td>
+      <td>2010.0</td>
+    </tr>
+    <tr>
+      <th>SalePrice</th>
+      <td>2930.0</td>
+      <td>180796.060068</td>
+      <td>79886.692357</td>
+      <td>12789.0</td>
+      <td>129500.00</td>
+      <td>160000.0</td>
+      <td>213500.00</td>
+      <td>755000.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>The main comment is that there’s a lof of missing data, and that some columns should be dropped entirely (in particular Alley, Pool QC, Fence, Misc Feature, Fireplace QC) - or the dataset documentation needs to be checked to see that N/A isn’t a default category in these cases. There’s also a mixture of categorical and numerical features, which is a little tricky to handle. Luckily sklearn has the <code class="language-plaintext highlighter-rouge">FeatureUnion</code> and <code class="language-plaintext highlighter-rouge">Pipeline</code> objects to help us.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ames</span><span class="p">.</span><span class="nf">isnull</span><span class="p">().</span><span class="nf">sum</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Order                0
+MS.SubClass          0
+MS.Zoning            0
+Lot.Frontage       490
+Lot.Area             0
+Street               0
+Alley             2732
+Lot.Shape            0
+Land.Contour         0
+Utilities            0
+Lot.Config           0
+Land.Slope           0
+Neighborhood         0
+Condition.1          0
+Condition.2          0
+Bldg.Type            0
+House.Style          0
+Overall.Qual         0
+Overall.Cond         0
+Year.Built           0
+Year.Remod.Add       0
+Roof.Style           0
+Roof.Matl            0
+Exterior.1st         0
+Exterior.2nd         0
+Mas.Vnr.Type        23
+Mas.Vnr.Area        23
+Exter.Qual           0
+Exter.Cond           0
+Foundation           0
+                  ... 
+Bedroom.AbvGr        0
+Kitchen.AbvGr        0
+Kitchen.Qual         0
+TotRms.AbvGrd        0
+Functional           0
+Fireplaces           0
+Fireplace.Qu      1422
+Garage.Type        157
+Garage.Yr.Blt      159
+Garage.Finish      159
+Garage.Cars          1
+Garage.Area          1
+Garage.Qual        159
+Garage.Cond        159
+Paved.Drive          0
+Wood.Deck.SF         0
+Open.Porch.SF        0
+Enclosed.Porch       0
+X3Ssn.Porch          0
+Screen.Porch         0
+Pool.Area            0
+Pool.QC           2917
+Fence             2358
+Misc.Feature      2824
+Misc.Val             0
+Mo.Sold              0
+Yr.Sold              0
+Sale.Type            0
+Sale.Condition       0
+SalePrice            0
+Length: 81, dtype: int64
+</code></pre></div></div>
+
+<p>First of all, let’s build a transformer which drops the columns we suggest. A sklearn compatible transformer is a class which has to have two methods <code class="language-plaintext highlighter-rouge">fit</code> (which returns <code class="language-plaintext highlighter-rouge">self</code>), and <code class="language-plaintext highlighter-rouge">transform</code> (which can return whatever you want). It’s a good idea to inherit from <code class="language-plaintext highlighter-rouge">sklearn.base.TransformerMixin</code> and <code class="language-plaintext highlighter-rouge">sklearn.base.BaseEstimator</code>. The general pattern of a Transformer is:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sklearn.base</span> <span class="kn">import</span> <span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span>
+
+<span class="k">class</span> <span class="nc">ExampleTransformer</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+    
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">self</span>
+    
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nf">do_something_to</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>These are actually quite simple, and can be quite flexible. Later on, we might see a transformer that uses the <code class="language-plaintext highlighter-rouge">fit</code> method. Anyway, here’s a column dropper.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">StandardScaler</span>
+<span class="kn">from</span> <span class="n">sklearn.pipeline</span> <span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">FeatureUnion</span>
+<span class="kn">from</span> <span class="n">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LarsCV</span>
+<span class="kn">from</span> <span class="n">sklearn.model_selection</span> <span class="kn">import</span>  <span class="n">train_test_split</span>
+<span class="kn">from</span> <span class="n">sklearn.metrics</span> <span class="kn">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">mean_squared_log_error</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ColumnDropper</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+    <span class="sh">'''</span><span class="s">
+    Transformer to drop a list of cols
+    </span><span class="sh">'''</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">drop_cols</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">_drop_cols</span> <span class="o">=</span> <span class="n">drop_cols</span>
+    
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">self</span>
+    
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">.</span><span class="nf">drop</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">_drop_cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y</span> <span class="o">=</span> <span class="n">ames</span><span class="p">[</span><span class="sh">'</span><span class="s">SalePrice</span><span class="sh">'</span><span class="p">].</span><span class="nf">copy</span><span class="p">()</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">ames</span><span class="p">.</span><span class="nf">drop</span><span class="p">(</span><span class="sh">'</span><span class="s">SalePrice</span><span class="sh">'</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">).</span><span class="nf">copy</span><span class="p">()</span>
+<span class="n">X</span><span class="p">.</span><span class="n">columns</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Index(['Order', 'MS.SubClass', 'MS.Zoning', 'Lot.Frontage', 'Lot.Area',
+       'Street', 'Alley', 'Lot.Shape', 'Land.Contour', 'Utilities',
+       'Lot.Config', 'Land.Slope', 'Neighborhood', 'Condition.1',
+       'Condition.2', 'Bldg.Type', 'House.Style', 'Overall.Qual',
+       'Overall.Cond', 'Year.Built', 'Year.Remod.Add', 'Roof.Style',
+       'Roof.Matl', 'Exterior.1st', 'Exterior.2nd', 'Mas.Vnr.Type',
+       'Mas.Vnr.Area', 'Exter.Qual', 'Exter.Cond', 'Foundation', 'Bsmt.Qual',
+       'Bsmt.Cond', 'Bsmt.Exposure', 'BsmtFin.Type.1', 'BsmtFin.SF.1',
+       'BsmtFin.Type.2', 'BsmtFin.SF.2', 'Bsmt.Unf.SF', 'Total.Bsmt.SF',
+       'Heating', 'Heating.QC', 'Central.Air', 'Electrical', 'X1st.Flr.SF',
+       'X2nd.Flr.SF', 'Low.Qual.Fin.SF', 'Gr.Liv.Area', 'Bsmt.Full.Bath',
+       'Bsmt.Half.Bath', 'Full.Bath', 'Half.Bath', 'Bedroom.AbvGr',
+       'Kitchen.AbvGr', 'Kitchen.Qual', 'TotRms.AbvGrd', 'Functional',
+       'Fireplaces', 'Fireplace.Qu', 'Garage.Type', 'Garage.Yr.Blt',
+       'Garage.Finish', 'Garage.Cars', 'Garage.Area', 'Garage.Qual',
+       'Garage.Cond', 'Paved.Drive', 'Wood.Deck.SF', 'Open.Porch.SF',
+       'Enclosed.Porch', 'X3Ssn.Porch', 'Screen.Porch', 'Pool.Area', 'Pool.QC',
+       'Fence', 'Misc.Feature', 'Misc.Val', 'Mo.Sold', 'Yr.Sold', 'Sale.Type',
+       'Sale.Condition'],
+      dtype='object')
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipe</span> <span class="o">=</span> <span class="nc">Pipeline</span><span class="p">([(</span><span class="sh">'</span><span class="s">dropper</span><span class="sh">'</span><span class="p">,</span> <span class="nc">ColumnDropper</span><span class="p">([</span><span class="sh">'</span><span class="s">Alley</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Pool.QC</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Fence</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Misc.Feature</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Fireplace.Qu</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Order</span><span class="sh">'</span><span class="p">]))])</span>
+<span class="n">X_trans</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">.</span><span class="nf">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="n">X_trans</span><span class="p">.</span><span class="n">columns</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Index(['MS.SubClass', 'MS.Zoning', 'Lot.Frontage', 'Lot.Area', 'Street',
+       'Lot.Shape', 'Land.Contour', 'Utilities', 'Lot.Config', 'Land.Slope',
+       'Neighborhood', 'Condition.1', 'Condition.2', 'Bldg.Type',
+       'House.Style', 'Overall.Qual', 'Overall.Cond', 'Year.Built',
+       'Year.Remod.Add', 'Roof.Style', 'Roof.Matl', 'Exterior.1st',
+       'Exterior.2nd', 'Mas.Vnr.Type', 'Mas.Vnr.Area', 'Exter.Qual',
+       'Exter.Cond', 'Foundation', 'Bsmt.Qual', 'Bsmt.Cond', 'Bsmt.Exposure',
+       'BsmtFin.Type.1', 'BsmtFin.SF.1', 'BsmtFin.Type.2', 'BsmtFin.SF.2',
+       'Bsmt.Unf.SF', 'Total.Bsmt.SF', 'Heating', 'Heating.QC', 'Central.Air',
+       'Electrical', 'X1st.Flr.SF', 'X2nd.Flr.SF', 'Low.Qual.Fin.SF',
+       'Gr.Liv.Area', 'Bsmt.Full.Bath', 'Bsmt.Half.Bath', 'Full.Bath',
+       'Half.Bath', 'Bedroom.AbvGr', 'Kitchen.AbvGr', 'Kitchen.Qual',
+       'TotRms.AbvGrd', 'Functional', 'Fireplaces', 'Garage.Type',
+       'Garage.Yr.Blt', 'Garage.Finish', 'Garage.Cars', 'Garage.Area',
+       'Garage.Qual', 'Garage.Cond', 'Paved.Drive', 'Wood.Deck.SF',
+       'Open.Porch.SF', 'Enclosed.Porch', 'X3Ssn.Porch', 'Screen.Porch',
+       'Pool.Area', 'Misc.Val', 'Mo.Sold', 'Yr.Sold', 'Sale.Type',
+       'Sale.Condition'],
+      dtype='object')
+</code></pre></div></div>
+
+<p>Another option, especially with columns with missing values, is to impute the value but to include a column telling the model where the imputed values are.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ImputeWithDummy</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">cols_to_impute</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="sh">'</span><span class="s">NA</span><span class="sh">'</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">cols_to_impute</span> <span class="o">=</span> <span class="n">cols_to_impute</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">strategy</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">fill</span> <span class="o">=</span> <span class="n">fill</span>
+        
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">strategy</span> <span class="o">==</span> <span class="sh">'</span><span class="s">mean</span><span class="sh">'</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">fill</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">mean</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">strategy</span> <span class="o">==</span> <span class="sh">'</span><span class="s">median</span><span class="sh">'</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">fill</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">median</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">strategy</span> <span class="o">==</span> <span class="sh">'</span><span class="s">mode</span><span class="sh">'</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">fill</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">mode</span><span class="p">().</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">strategy</span> <span class="o">==</span> <span class="sh">'</span><span class="s">fill</span><span class="sh">'</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nf">type</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">fill</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">list</span> <span class="ow">and</span> <span class="nf">type</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="ow">is</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">:</span>
+                <span class="n">self</span><span class="p">.</span><span class="n">fill</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">([(</span><span class="n">cname</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">cname</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">X</span><span class="p">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">fill</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="n">self</span>
+    
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">cols_to_impute</span><span class="p">:</span>
+            <span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">{}_missing</span><span class="sh">'</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="n">col</span><span class="p">)]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">].</span><span class="nf">isnull</span><span class="p">().</span><span class="nf">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">].</span><span class="nf">fillna</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">fill</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">df</span>
+    
+<span class="n">X</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">ames.csv</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">imputer</span> <span class="o">=</span> <span class="nc">ImputeWithDummy</span><span class="p">([</span><span class="sh">'</span><span class="s">Alley</span><span class="sh">'</span><span class="p">],</span> <span class="n">strategy</span><span class="o">=</span><span class="sh">'</span><span class="s">mode</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">X_transformed</span> <span class="o">=</span> <span class="n">imputer</span><span class="p">.</span><span class="nf">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="n">X_transformed</span><span class="p">[[</span><span class="sh">'</span><span class="s">Alley</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Alley_missing</span><span class="sh">'</span><span class="p">]].</span><span class="nf">head</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Alley</th>
+      <th>Alley_missing</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Grvl</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Grvl</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Grvl</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Grvl</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Grvl</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>Of course, you should always read the data documentation (https://ww2.amstat.org/publications/jse/v19n3/decock/datadocumentation.txt), and there you’ll see for Alley that NaN means No Alley Access, and that we don’t need to any imputation at all!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">NaNImpute</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">fill_vals</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">cols</span> <span class="o">=</span> <span class="n">cols</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">fill_vals</span> <span class="o">=</span> <span class="n">fill_vals</span>
+        
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">self</span>
+    
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">col</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">cols</span><span class="p">):</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">].</span><span class="nf">fillna</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">fill_vals</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>The other thing we’ll need to consider is that some columns will need to be converted to numeric features first, before an estimator can be fitted. First we’ll fit an imputer, and then encode.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">DummyEncoding</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="n">self</span><span class="p">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">columns</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">self</span>
+    
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="p">.</span><span class="nf">get_dummies</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">drop_first</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">impute_cols</span> <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">Alley</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Pool.QC</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Fence</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Misc.Feature</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Fireplace.Qu</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">pipe</span> <span class="o">=</span> <span class="nc">Pipeline</span><span class="p">([(</span><span class="sh">'</span><span class="s">impute</span><span class="sh">'</span><span class="p">,</span> <span class="nc">ImputeWithDummy</span><span class="p">(</span><span class="n">impute_cols</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="sh">'</span><span class="s">mode</span><span class="sh">'</span><span class="p">)),</span> <span class="p">(</span><span class="sh">'</span><span class="s">encode</span><span class="sh">'</span><span class="p">,</span> <span class="nc">DummyEncoding</span><span class="p">(</span><span class="n">impute_cols</span><span class="p">))])</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">ames.csv</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">X_trans</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">.</span><span class="nf">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="n">X_trans</span><span class="p">.</span><span class="n">columns</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Index(['Order', 'PID', 'MS.SubClass', 'MS.Zoning', 'Lot.Frontage', 'Lot.Area',
+       'Street', 'Lot.Shape', 'Land.Contour', 'Utilities', 'Lot.Config',
+       'Land.Slope', 'Neighborhood', 'Condition.1', 'Condition.2', 'Bldg.Type',
+       'House.Style', 'Overall.Qual', 'Overall.Cond', 'Year.Built',
+       'Year.Remod.Add', 'Roof.Style', 'Roof.Matl', 'Exterior.1st',
+       'Exterior.2nd', 'Mas.Vnr.Type', 'Mas.Vnr.Area', 'Exter.Qual',
+       'Exter.Cond', 'Foundation', 'Bsmt.Qual', 'Bsmt.Cond', 'Bsmt.Exposure',
+       'BsmtFin.Type.1', 'BsmtFin.SF.1', 'BsmtFin.Type.2', 'BsmtFin.SF.2',
+       'Bsmt.Unf.SF', 'Total.Bsmt.SF', 'Heating', 'Heating.QC', 'Central.Air',
+       'Electrical', 'X1st.Flr.SF', 'X2nd.Flr.SF', 'Low.Qual.Fin.SF',
+       'Gr.Liv.Area', 'Bsmt.Full.Bath', 'Bsmt.Half.Bath', 'Full.Bath',
+       'Half.Bath', 'Bedroom.AbvGr', 'Kitchen.AbvGr', 'Kitchen.Qual',
+       'TotRms.AbvGrd', 'Functional', 'Fireplaces', 'Garage.Type',
+       'Garage.Yr.Blt', 'Garage.Finish', 'Garage.Cars', 'Garage.Area',
+       'Garage.Qual', 'Garage.Cond', 'Paved.Drive', 'Wood.Deck.SF',
+       'Open.Porch.SF', 'Enclosed.Porch', 'X3Ssn.Porch', 'Screen.Porch',
+       'Pool.Area', 'Misc.Val', 'Mo.Sold', 'Yr.Sold', 'Sale.Type',
+       'Sale.Condition', 'SalePrice', 'Alley_missing', 'Pool.QC_missing',
+       'Fence_missing', 'Misc.Feature_missing', 'Fireplace.Qu_missing',
+       'Alley_Pave', 'Pool.QC_Fa', 'Pool.QC_Gd', 'Pool.QC_TA', 'Fence_GdWo',
+       'Fence_MnPrv', 'Fence_MnWw', 'Misc.Feature_Gar2', 'Misc.Feature_Othr',
+       'Misc.Feature_Shed', 'Misc.Feature_TenC', 'Fireplace.Qu_Fa',
+       'Fireplace.Qu_Gd', 'Fireplace.Qu_Po', 'Fireplace.Qu_TA'],
+      dtype='object')
+</code></pre></div></div>
+
+<p>This dataset has several types of columns - continuous features encoded as ints and floats, but also some ordinal variables have snick in as ints. We’ll properly define all the int and float colukmns first:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">float_cols</span> <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">Lot.Frontage</span><span class="sh">'</span><span class="p">,</span> 
+              <span class="sh">'</span><span class="s">Mas.Vnr.Area</span><span class="sh">'</span><span class="p">,</span> 
+              <span class="sh">'</span><span class="s">BsmtFin.SF.1</span><span class="sh">'</span><span class="p">,</span> 
+              <span class="sh">'</span><span class="s">BsmtFin.SF.2</span><span class="sh">'</span><span class="p">,</span> 
+              <span class="sh">'</span><span class="s">Bsmt.Unf.SF</span><span class="sh">'</span><span class="p">,</span>
+              <span class="sh">'</span><span class="s">Total.Bsmt.SF</span><span class="sh">'</span><span class="p">,</span>
+              <span class="sh">'</span><span class="s">Garage.Cars</span><span class="sh">'</span><span class="p">,</span>
+              <span class="sh">'</span><span class="s">Garage.Area</span><span class="sh">'</span>
+             <span class="p">]</span>
+
+<span class="n">int_cols</span> <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">MS.SubClass</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Lot.Area</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">X1st.Flr.SF</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">X2nd.Flr.SF</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Low.Qual.Fin.SF</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Gr.Liv.Area</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Full.Bath</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Half.Bath</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Bedroom.AbvGr</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Kitchen.AbvGr</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">TotRms.AbvGrd</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Fireplaces</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Wood.Deck.SF</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Open.Porch.SF</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Enclosed.Porch</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">X3Ssn.Porch</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Screen.Porch</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Pool.Area</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Misc.Val</span><span class="sh">'</span>
+           <span class="p">]</span>
+</code></pre></div></div>
+
+<p>Finally, we need some way to deal with ordinal features:</p>
+
+<ul>
+  <li>Lot Shape (Ordinal): General shape of property</li>
+  <li>Utilities (Ordinal): Type of utilities available</li>
+  <li>Land Slope (Ordinal): Slope of property</li>
+  <li>Overall Qual (Ordinal): Rates the overall material and finish of the house</li>
+  <li>Overall Cond (Ordinal): Rates the overall condition of the house</li>
+  <li>Exter Qual (Ordinal): Evaluates the quality of the material on the exterior</li>
+  <li>Exter Cond (Ordinal): Evaluates the present condition of the material on the exterior</li>
+  <li>Bsmt Qual (Ordinal): Evaluates the height of the basement</li>
+  <li>Bsmt Cond (Ordinal): Evaluates the general condition of the basement</li>
+  <li>Bsmt Exposure	(Ordinal): Refers to walkout or garden level walls</li>
+  <li>BsmtFin Type 1	(Ordinal): Rating of basement finished area</li>
+  <li>BsmtFin Type 2	(Ordinal): Rating of basement finished area (if multiple types)</li>
+  <li>HeatingQC (Ordinal): Heating quality and condition</li>
+  <li>Electrical (Ordinal): Electrical system</li>
+  <li>FireplaceQu (Ordinal): Fireplace quality</li>
+  <li>Garage Finish (Ordinal)	: Interior finish of the garage</li>
+  <li>Garage Qual (Ordinal): Garage quality</li>
+  <li>Garage Cond (Ordinal): Garage condition</li>
+  <li>Paved Drive (Ordinal): Paved driveway</li>
+  <li>Pool QC (Ordinal): Pool quality</li>
+  <li>Fence (Ordinal): Fence quality</li>
+</ul>
+
+<p>To do this we could use the OrdinalEncoder from http://contrib.scikit-learn.org/categorical-encoding/, which will be included in sklearn in a future release  - but I have trouble getting this to work with Pandas. Another choice is just to write our own. What we’ll do instead is to mix ordinal and categorical variables, and use the OneHotEncoder from the category_encoders package.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ord_cols</span>     <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">Lot.Shape</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Utilities</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Land.Slope</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Overall.Qual</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Overall.Cond</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Exter.Qual</span><span class="sh">'</span><span class="p">,</span> 
+                <span class="sh">'</span><span class="s">Exter.Cond</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Bsmt.Qual</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Bsmt.Cond</span><span class="sh">'</span><span class="p">,</span> 
+                <span class="sh">'</span><span class="s">Bsmt.Exposure</span><span class="sh">'</span><span class="p">,</span> 
+                <span class="sh">'</span><span class="s">BsmtFin.Type.1</span><span class="sh">'</span><span class="p">,</span> 
+                <span class="sh">'</span><span class="s">BsmtFin.SF.1</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Heating.QC</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Electrical</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Fireplace.Qu</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Garage.Finish</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Garage.Qual</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Garage.Cond</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Paved.Drive</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Pool.QC</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Fence</span><span class="sh">'</span><span class="p">,</span>
+               <span class="p">]</span>
+
+<span class="n">cat_cols</span> <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">MS.SubClass</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">MS.Zoning</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Street</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Alley</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Land.Contour</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Lot.Config</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Neighborhood</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Condition.1</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Condition.2</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Bldg.Type</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">House.Style</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Roof.Style</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Exterior.1st</span><span class="sh">'</span><span class="p">,</span> 
+            <span class="sh">'</span><span class="s">Exterior.2nd</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Mas.Vnr.Type</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Foundation</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Heating</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Central.Air</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Garage.Type</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Misc.Feature</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Sale.Type</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">Sale.Condition</span><span class="sh">'</span>
+<span class="p">]</span>
+</code></pre></div></div>
+
+<p>Finally, we define a few useful transforms and put together our first pipeline.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">DataFrameSelector</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+    <span class="sh">'''</span><span class="s">
+    Select columns from pandas dataframe by specifying a list of column names
+    </span><span class="sh">'''</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">col_names</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">col_names</span> <span class="o">=</span> <span class="n">col_names</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">self</span>
+
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">X</span><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">col_names</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Scale</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">cols</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">scaler</span> <span class="o">=</span> <span class="nc">StandardScaler</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">cols</span> <span class="o">=</span> <span class="n">cols</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">index</span> <span class="o">=</span> <span class="p">[]</span>
+        
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">scaler</span><span class="p">.</span><span class="nf">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">cols</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">columns</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">index</span>
+        <span class="k">return</span> <span class="n">self</span>
+        
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">scaler</span><span class="p">.</span><span class="nf">transform</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">cols</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sklearn.externals.joblib</span> <span class="kn">import</span> <span class="n">Parallel</span><span class="p">,</span> <span class="n">delayed</span>
+<span class="kn">from</span> <span class="n">sklearn.pipeline</span> <span class="kn">import</span> <span class="n">FeatureUnion</span><span class="p">,</span> <span class="n">_fit_transform_one</span><span class="p">,</span> <span class="n">_transform_one</span>
+<span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">sparse</span>
+
+
+<span class="k">class</span> <span class="nc">FeatureUnion</span><span class="p">(</span><span class="n">FeatureUnion</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">fit_params</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">_validate_transformers</span><span class="p">()</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nc">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">n_jobs</span><span class="p">)(</span>
+            <span class="nf">delayed</span><span class="p">(</span><span class="n">_fit_transform_one</span><span class="p">)(</span><span class="n">trans</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span>
+                                        <span class="o">**</span><span class="n">fit_params</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="nf">_iter</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+            <span class="c1"># All transformers are None
+</span>            <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">X</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">Xs</span><span class="p">,</span> <span class="n">transformers</span> <span class="o">=</span> <span class="nf">zip</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">_update_transformer_list</span><span class="p">(</span><span class="n">transformers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nf">any</span><span class="p">(</span><span class="n">sparse</span><span class="p">.</span><span class="nf">issparse</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">):</span>
+            <span class="n">Xs</span> <span class="o">=</span> <span class="n">sparse</span><span class="p">.</span><span class="nf">hstack</span><span class="p">(</span><span class="n">Xs</span><span class="p">).</span><span class="nf">tocsr</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Xs</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">merge_dataframes_by_column</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Xs</span>
+
+    <span class="k">def</span> <span class="nf">merge_dataframes_by_column</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">Xs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="p">.</span><span class="nf">concat</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="sh">"</span><span class="s">columns</span><span class="sh">"</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="n">Xs</span> <span class="o">=</span> <span class="nc">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">n_jobs</span><span class="p">)(</span>
+            <span class="nf">delayed</span><span class="p">(</span><span class="n">_transform_one</span><span class="p">)(</span><span class="n">trans</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="nf">_iter</span><span class="p">())</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Xs</span><span class="p">:</span>
+            <span class="c1"># All transformers are None
+</span>            <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">X</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nf">any</span><span class="p">(</span><span class="n">sparse</span><span class="p">.</span><span class="nf">issparse</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">):</span>
+            <span class="n">Xs</span> <span class="o">=</span> <span class="n">sparse</span><span class="p">.</span><span class="nf">hstack</span><span class="p">(</span><span class="n">Xs</span><span class="p">).</span><span class="nf">tocsr</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Xs</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">merge_dataframes_by_column</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Xs</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">StandardScaler</span><span class="p">,</span> <span class="n">LabelEncoder</span><span class="p">,</span> <span class="n">LabelBinarizer</span>
+<span class="kn">from</span> <span class="n">category_encoders</span> <span class="kn">import</span> <span class="n">OneHotEncoder</span>
+
+<span class="n">numerical_cols</span> <span class="o">=</span> <span class="n">int_cols</span> <span class="o">+</span> <span class="n">float_cols</span>
+
+<span class="n">pipe</span> <span class="o">=</span> <span class="nc">Pipeline</span><span class="p">([</span>
+    <span class="p">(</span><span class="sh">'</span><span class="s">features</span><span class="sh">'</span><span class="p">,</span> <span class="nc">FeatureUnion</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">transformer_list</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">(</span><span class="sh">'</span><span class="s">numericals</span><span class="sh">'</span><span class="p">,</span> <span class="nc">Pipeline</span><span class="p">([</span>
+             <span class="p">(</span><span class="sh">'</span><span class="s">selector</span><span class="sh">'</span><span class="p">,</span> <span class="nc">DataFrameSelector</span><span class="p">(</span><span class="n">numerical_cols</span><span class="p">)),</span>
+             <span class="p">(</span><span class="sh">'</span><span class="s">imputer</span><span class="sh">'</span><span class="p">,</span> <span class="nc">ImputeWithDummy</span><span class="p">(</span><span class="n">numerical_cols</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="sh">'</span><span class="s">mean</span><span class="sh">'</span><span class="p">)),</span>
+             <span class="c1">#('scaling', Scale(numerical_cols))
+</span>        <span class="p">])),</span>
+        
+        <span class="c1">#('categoricals', Pipeline([
+</span>        <span class="c1">#     ('selector', DataFrameSelector(cat_cols)), 
+</span>        <span class="c1">#     ('encode', OneHotEncoder(cat_cols, return_df=True)),
+</span>        <span class="c1">#])),
+</span>        
+        <span class="c1">#('NanImpute', Pipeline([
+</span>        <span class="c1">##     ('selector', DataFrameSelector(['Alley', 'Pool.QC', 'Fence', 'Misc.Feature', 'Fireplace.Qu'])),
+</span>        <span class="c1">#     ('nan_impute', NaNImpute(['Alley', 'Pool.QC', 'Fence', 'Misc.Feature', 'Fireplace.Qu'], 'Not Applicable'))
+</span>        <span class="c1">#])),
+</span>    <span class="p">])),</span> 
+<span class="p">])</span>  
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">X</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">ames.csv</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="nf">set_index</span><span class="p">(</span><span class="sh">'</span><span class="s">PID</span><span class="sh">'</span><span class="p">).</span><span class="nf">copy</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">X_trans</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">.</span><span class="nf">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="n">X_trans</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>MS.SubClass</th>
+      <th>Lot.Area</th>
+      <th>X1st.Flr.SF</th>
+      <th>X2nd.Flr.SF</th>
+      <th>Low.Qual.Fin.SF</th>
+      <th>Gr.Liv.Area</th>
+      <th>Full.Bath</th>
+      <th>Half.Bath</th>
+      <th>Bedroom.AbvGr</th>
+      <th>Kitchen.AbvGr</th>
+      <th>...</th>
+      <th>Pool.Area_missing</th>
+      <th>Misc.Val_missing</th>
+      <th>Lot.Frontage_missing</th>
+      <th>Mas.Vnr.Area_missing</th>
+      <th>BsmtFin.SF.1_missing</th>
+      <th>BsmtFin.SF.2_missing</th>
+      <th>Bsmt.Unf.SF_missing</th>
+      <th>Total.Bsmt.SF_missing</th>
+      <th>Garage.Cars_missing</th>
+      <th>Garage.Area_missing</th>
+    </tr>
+    <tr>
+      <th>PID</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>526301100</th>
+      <td>20</td>
+      <td>31770</td>
+      <td>1656</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1656</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>526350040</th>
+      <td>20</td>
+      <td>11622</td>
+      <td>896</td>
+      <td>0</td>
+      <td>0</td>
+      <td>896</td>
+      <td>1</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>526351010</th>
+      <td>20</td>
+      <td>14267</td>
+      <td>1329</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1329</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>526353030</th>
+      <td>20</td>
+      <td>11160</td>
+      <td>2110</td>
+      <td>0</td>
+      <td>0</td>
+      <td>2110</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527105010</th>
+      <td>60</td>
+      <td>13830</td>
+      <td>928</td>
+      <td>701</td>
+      <td>0</td>
+      <td>1629</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527105030</th>
+      <td>60</td>
+      <td>9978</td>
+      <td>926</td>
+      <td>678</td>
+      <td>0</td>
+      <td>1604</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527127150</th>
+      <td>120</td>
+      <td>4920</td>
+      <td>1338</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1338</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527145080</th>
+      <td>120</td>
+      <td>5005</td>
+      <td>1280</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1280</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527146030</th>
+      <td>120</td>
+      <td>5389</td>
+      <td>1616</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1616</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527162130</th>
+      <td>60</td>
+      <td>7500</td>
+      <td>1028</td>
+      <td>776</td>
+      <td>0</td>
+      <td>1804</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527163010</th>
+      <td>60</td>
+      <td>10000</td>
+      <td>763</td>
+      <td>892</td>
+      <td>0</td>
+      <td>1655</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527165230</th>
+      <td>20</td>
+      <td>7980</td>
+      <td>1187</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1187</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527166040</th>
+      <td>60</td>
+      <td>8402</td>
+      <td>789</td>
+      <td>676</td>
+      <td>0</td>
+      <td>1465</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527180040</th>
+      <td>20</td>
+      <td>10176</td>
+      <td>1341</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1341</td>
+      <td>1</td>
+      <td>1</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527182190</th>
+      <td>120</td>
+      <td>6820</td>
+      <td>1502</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1502</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527216070</th>
+      <td>60</td>
+      <td>53504</td>
+      <td>1690</td>
+      <td>1589</td>
+      <td>0</td>
+      <td>3279</td>
+      <td>3</td>
+      <td>1</td>
+      <td>4</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527225035</th>
+      <td>50</td>
+      <td>12134</td>
+      <td>1080</td>
+      <td>672</td>
+      <td>0</td>
+      <td>1752</td>
+      <td>2</td>
+      <td>0</td>
+      <td>4</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527258010</th>
+      <td>20</td>
+      <td>11394</td>
+      <td>1856</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1856</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527276150</th>
+      <td>20</td>
+      <td>19138</td>
+      <td>864</td>
+      <td>0</td>
+      <td>0</td>
+      <td>864</td>
+      <td>1</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527302110</th>
+      <td>20</td>
+      <td>13175</td>
+      <td>2073</td>
+      <td>0</td>
+      <td>0</td>
+      <td>2073</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527358140</th>
+      <td>20</td>
+      <td>11751</td>
+      <td>1844</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1844</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527358200</th>
+      <td>85</td>
+      <td>10625</td>
+      <td>1173</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1173</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527368020</th>
+      <td>60</td>
+      <td>7500</td>
+      <td>814</td>
+      <td>860</td>
+      <td>0</td>
+      <td>1674</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527402200</th>
+      <td>20</td>
+      <td>11241</td>
+      <td>1004</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1004</td>
+      <td>1</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527402250</th>
+      <td>20</td>
+      <td>12537</td>
+      <td>1078</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1078</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527403020</th>
+      <td>20</td>
+      <td>8450</td>
+      <td>1056</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1056</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527404120</th>
+      <td>20</td>
+      <td>8400</td>
+      <td>882</td>
+      <td>0</td>
+      <td>0</td>
+      <td>882</td>
+      <td>1</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527425090</th>
+      <td>20</td>
+      <td>10500</td>
+      <td>864</td>
+      <td>0</td>
+      <td>0</td>
+      <td>864</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527427230</th>
+      <td>120</td>
+      <td>5858</td>
+      <td>1337</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1337</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>527451180</th>
+      <td>160</td>
+      <td>1680</td>
+      <td>483</td>
+      <td>504</td>
+      <td>0</td>
+      <td>987</td>
+      <td>1</td>
+      <td>1</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>916477010</th>
+      <td>20</td>
+      <td>13618</td>
+      <td>1960</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1960</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>921205030</th>
+      <td>20</td>
+      <td>11443</td>
+      <td>2028</td>
+      <td>0</td>
+      <td>0</td>
+      <td>2028</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>921205050</th>
+      <td>20</td>
+      <td>11577</td>
+      <td>1838</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1838</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923125030</th>
+      <td>20</td>
+      <td>31250</td>
+      <td>1600</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1600</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923202025</th>
+      <td>90</td>
+      <td>7020</td>
+      <td>1368</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1368</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>2</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923203090</th>
+      <td>120</td>
+      <td>4500</td>
+      <td>1216</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1216</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923203100</th>
+      <td>120</td>
+      <td>4500</td>
+      <td>1337</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1337</td>
+      <td>2</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923205120</th>
+      <td>20</td>
+      <td>17217</td>
+      <td>1140</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1140</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923225190</th>
+      <td>160</td>
+      <td>2665</td>
+      <td>616</td>
+      <td>688</td>
+      <td>0</td>
+      <td>1304</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923225240</th>
+      <td>160</td>
+      <td>2665</td>
+      <td>925</td>
+      <td>550</td>
+      <td>0</td>
+      <td>1475</td>
+      <td>2</td>
+      <td>0</td>
+      <td>4</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923225260</th>
+      <td>160</td>
+      <td>3964</td>
+      <td>1291</td>
+      <td>1230</td>
+      <td>0</td>
+      <td>2521</td>
+      <td>2</td>
+      <td>1</td>
+      <td>5</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923225510</th>
+      <td>20</td>
+      <td>10172</td>
+      <td>874</td>
+      <td>0</td>
+      <td>0</td>
+      <td>874</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923226150</th>
+      <td>90</td>
+      <td>11836</td>
+      <td>1652</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1652</td>
+      <td>2</td>
+      <td>0</td>
+      <td>4</td>
+      <td>2</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923226180</th>
+      <td>180</td>
+      <td>1470</td>
+      <td>630</td>
+      <td>0</td>
+      <td>0</td>
+      <td>630</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923226290</th>
+      <td>160</td>
+      <td>1484</td>
+      <td>546</td>
+      <td>546</td>
+      <td>0</td>
+      <td>1092</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923227100</th>
+      <td>20</td>
+      <td>13384</td>
+      <td>1360</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1360</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923228130</th>
+      <td>180</td>
+      <td>1533</td>
+      <td>630</td>
+      <td>0</td>
+      <td>0</td>
+      <td>630</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923228180</th>
+      <td>160</td>
+      <td>1533</td>
+      <td>546</td>
+      <td>546</td>
+      <td>0</td>
+      <td>1092</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923228210</th>
+      <td>160</td>
+      <td>1526</td>
+      <td>546</td>
+      <td>546</td>
+      <td>0</td>
+      <td>1092</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923228260</th>
+      <td>160</td>
+      <td>1936</td>
+      <td>546</td>
+      <td>546</td>
+      <td>0</td>
+      <td>1092</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923228310</th>
+      <td>160</td>
+      <td>1894</td>
+      <td>546</td>
+      <td>546</td>
+      <td>0</td>
+      <td>1092</td>
+      <td>1</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923229110</th>
+      <td>90</td>
+      <td>12640</td>
+      <td>1728</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1728</td>
+      <td>2</td>
+      <td>0</td>
+      <td>4</td>
+      <td>2</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923230040</th>
+      <td>90</td>
+      <td>9297</td>
+      <td>1728</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1728</td>
+      <td>2</td>
+      <td>0</td>
+      <td>4</td>
+      <td>2</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923250060</th>
+      <td>20</td>
+      <td>17400</td>
+      <td>1126</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1126</td>
+      <td>2</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923251180</th>
+      <td>20</td>
+      <td>20000</td>
+      <td>1224</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1224</td>
+      <td>1</td>
+      <td>0</td>
+      <td>4</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923275080</th>
+      <td>80</td>
+      <td>7937</td>
+      <td>1003</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1003</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923276100</th>
+      <td>20</td>
+      <td>8885</td>
+      <td>902</td>
+      <td>0</td>
+      <td>0</td>
+      <td>902</td>
+      <td>1</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>923400125</th>
+      <td>85</td>
+      <td>10441</td>
+      <td>970</td>
+      <td>0</td>
+      <td>0</td>
+      <td>970</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>924100070</th>
+      <td>20</td>
+      <td>10010</td>
+      <td>1389</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1389</td>
+      <td>1</td>
+      <td>0</td>
+      <td>2</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>924151050</th>
+      <td>60</td>
+      <td>9627</td>
+      <td>996</td>
+      <td>1004</td>
+      <td>0</td>
+      <td>2000</td>
+      <td>2</td>
+      <td>1</td>
+      <td>3</td>
+      <td>1</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+<p>2930 rows × 54 columns</p>
+</div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">l</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">X_trans</span><span class="p">.</span><span class="nf">isnull</span><span class="p">().</span><span class="nf">sum</span><span class="p">())</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">warnings</span>
+<span class="n">warnings</span><span class="p">.</span><span class="nf">filterwarnings</span><span class="p">(</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">X_train</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_test</span> <span class="o">=</span> <span class="nf">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="nc">Pipeline</span><span class="p">([(</span><span class="sh">'</span><span class="s">pipeline</span><span class="sh">'</span><span class="p">,</span> <span class="n">pipe</span><span class="p">),</span> <span class="p">(</span><span class="sh">'</span><span class="s">clf</span><span class="sh">'</span><span class="p">,</span> <span class="nc">LarsCV</span><span class="p">())])</span>
+<span class="n">model</span><span class="p">.</span><span class="nf">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Pipeline(memory=None,
+     steps=[('pipeline', Pipeline(memory=None,
+     steps=[('features', FeatureUnion(n_jobs=1,
+       transformer_list=[('numericals', Pipeline(memory=None,
+     steps=[('selector', DataFrameSelector(col_names=['MS.SubClass', 'Lot.Area', 'X1st.Flr.SF', 'X2nd.Flr.SF', 'Low.Qual.Fin.SF', 'Gr.Liv.Area', 'Fu...max_n_alphas=1000, n_jobs=1, normalize=True,
+    positive=False, precompute='auto', verbose=False))])
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipe</span><span class="p">.</span><span class="nf">fit_transform</span><span class="p">(</span><span class="n">X_test</span><span class="p">).</span><span class="n">columns</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Index(['MS.SubClass', 'Lot.Area', 'X1st.Flr.SF', 'X2nd.Flr.SF',
+       'Low.Qual.Fin.SF', 'Gr.Liv.Area', 'Full.Bath', 'Half.Bath',
+       'Bedroom.AbvGr', 'Kitchen.AbvGr', 'TotRms.AbvGrd', 'Fireplaces',
+       'Wood.Deck.SF', 'Open.Porch.SF', 'Enclosed.Porch', 'X3Ssn.Porch',
+       'Screen.Porch', 'Pool.Area', 'Misc.Val', 'Lot.Frontage', 'Mas.Vnr.Area',
+       'BsmtFin.SF.1', 'BsmtFin.SF.2', 'Bsmt.Unf.SF', 'Total.Bsmt.SF',
+       'Garage.Cars', 'Garage.Area', 'MS.SubClass_missing', 'Lot.Area_missing',
+       'X1st.Flr.SF_missing', 'X2nd.Flr.SF_missing', 'Low.Qual.Fin.SF_missing',
+       'Gr.Liv.Area_missing', 'Full.Bath_missing', 'Half.Bath_missing',
+       'Bedroom.AbvGr_missing', 'Kitchen.AbvGr_missing',
+       'TotRms.AbvGrd_missing', 'Fireplaces_missing', 'Wood.Deck.SF_missing',
+       'Open.Porch.SF_missing', 'Enclosed.Porch_missing',
+       'X3Ssn.Porch_missing', 'Screen.Porch_missing', 'Pool.Area_missing',
+       'Misc.Val_missing', 'Lot.Frontage_missing', 'Mas.Vnr.Area_missing',
+       'BsmtFin.SF.1_missing', 'BsmtFin.SF.2_missing', 'Bsmt.Unf.SF_missing',
+       'Total.Bsmt.SF_missing', 'Garage.Cars_missing', 'Garage.Area_missing'],
+      dtype='object')
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">cross_val_score</span>
+<span class="kn">from</span> <span class="n">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">KFold</span>
+
+<span class="k">def</span> <span class="nf">rmse_cv</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="n">rmse</span><span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="o">-</span><span class="nf">cross_val_score</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="sh">"</span><span class="s">neg_mean_squared_error</span><span class="sh">"</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+    <span class="nf">return</span><span class="p">(</span><span class="n">rmse</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">rmse_cv</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>array([37647.53964453, 71123.27879506])
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sklearn.metrics</span> <span class="kn">import</span> <span class="n">r2_score</span>
+
+<span class="k">def</span> <span class="nf">get_score</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>    
+    <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">R2: {}</span><span class="sh">'</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="nf">r2_score</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">labels</span><span class="p">)))</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">get_score</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>R2: 0.6208433062823728
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>

@@ -1,0 +1,124 @@
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">matplotlib</span> <span class="k">as</span> <span class="n">mpl</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="n">style</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="sh">'</span><span class="s">ggplot</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">passengers</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">passengers.csv</span><span class="sh">'</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="sh">'</span><span class="s">;</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">passengers</span><span class="p">[</span><span class="sh">'</span><span class="s">datetime</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">to_datetime</span><span class="p">(</span><span class="n">passengers</span><span class="p">[</span><span class="sh">'</span><span class="s">Month</span><span class="sh">'</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">passengers</span> <span class="o">=</span> <span class="n">passengers</span><span class="p">.</span><span class="nf">set_index</span><span class="p">(</span><span class="sh">'</span><span class="s">datetime</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">passengers</span> <span class="o">=</span> <span class="n">passengers</span><span class="p">.</span><span class="nf">drop</span><span class="p">(</span><span class="sh">'</span><span class="s">Month</span><span class="sh">'</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">mpl</span><span class="p">.</span><span class="nf">rc_context</span><span class="p">():</span>
+    <span class="n">mpl</span><span class="p">.</span><span class="nf">rc</span><span class="p">(</span><span class="sh">"</span><span class="s">figure</span><span class="sh">"</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">passengers</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">observed</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><img src="2021-08-12-Time-Series-Forecasting-With-SARIMAX_files/2021-08-12-Time-Series-Forecasting-With-SARIMAX_5_0.png" alt="png" /></p>
+
+<p>Let’s fit a simple ARIMA model, where we simply chose 1 AR order and 1 MA order. We also include seasonality of 12 months in this regression - but there’s no need to worry about it!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">IPython.core.debugger</span> <span class="kn">import</span> <span class="n">set_trace</span>
+
+<span class="k">def</span> <span class="nf">meboot</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">pd</span><span class="p">.</span><span class="n">Series</span><span class="p">,</span> <span class="n">num_replicates</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sh">'''</span><span class="s">
+    Maximum Entropy Time Series Bootstrap as described in:
+    https://cran.r-project.org/web/packages/meboot/vignettes/meboot.pdf
+    The algorithm (described below) creates an (x.shape[0], num_replicates) DataFrame of replicated time series designed to mimic the properties of the given time series. Bootstrap samples are used to study the relation between the sample and the (unknown) population by a comparible relation between the sample at hand and appropriately designed (observable) resamples. The Maximum Entropy (ME) Bootstrap extends the traditional bootstrap to nonstationary dependent data.
+    Original R source code:
+    https://rdrr.io/cran/meboot/f/
+    The steps of the algorithm are:
+    1. Sort the original data in increasing order to create order statistics x_(t) t=1,...,T and store the ordering index vector.
+    2. Compute intermediate points z_t = (x_(t) + x_(t+1))/2 from the order statistics
+    3. Compute the trimmed mean, m_trimmed, of the deviations x_t - x_{t-1} among all consecutive observations. Compute the lower limit for the left tail as x_(1) - m_trimmed and the upper limie for the right tail as x_(T) + m_trimmed. The limits become the limiting intermediate points.
+    4. Compute the mean of the maximum entropy density within each interval such that the </span><span class="sh">'</span><span class="s">mean preserving constraint</span><span class="sh">'</span><span class="s"> (designed to satify the ergodic theorem) is satisfied. Interval means are denoted m_t. The means for the first and last interval have simpler formulas.
+    5. Generate random numbers from the [0, 1] uniform interval, and compute sample quantiels of the ME density at those points and sort them.
+    6. Reorder the sorted sample quantiles by using the ordering index of step 1. This recovers the time dependence relationships of the originally observed data.
+    7. Repeat steps 2 to 6 num_replicates times.
+    Parameters
+    ----------------------
+    x : pd.Series
+      The original Time Series to create replicates for.
+    num_replicates : int
+      The number of replicates to create.
+    Returns
+    -----------------------
+    replicates : pd.DataFrame
+      A (x.shape[0], num_replicates) DataFrame containing the Maximum Entropy replicates of x as columns.
+    Examples
+    -----------------------
+    x = my_series
+    replicates = meboot(x, num_replicates=100)
+    </span><span class="sh">'''</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pd</span><span class="p">.</span><span class="n">Series</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="s">`x` should be a pandas.Series</span><span class="sh">'</span><span class="p">)</span>
+
+    <span class="c1"># 1
+</span>    <span class="n">sorted_x</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">sort_values</span><span class="p">()</span>
+    <span class="n">xt</span> <span class="o">=</span> <span class="n">sorted_x</span><span class="p">.</span><span class="n">values</span>
+
+    <span class="c1"># 3 + 2
+</span>    <span class="n">trimmed_mean</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">diff</span><span class="p">().</span><span class="nf">abs</span><span class="p">().</span><span class="nf">mean</span><span class="p">()</span>
+    <span class="n">zt</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">hstack</span><span class="p">((</span>
+        <span class="n">xt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">trimmed_mean</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">xt</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">xt</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">xt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">trimmed_mean</span>
+    <span class="p">))</span>
+
+    <span class="c1"># 4
+</span>    <span class="n">desired_means</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">hstack</span><span class="p">((</span>
+        <span class="mf">0.75</span> <span class="o">*</span> <span class="n">xt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">xt</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="mf">0.25</span> <span class="o">*</span> <span class="n">xt</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">xt</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">xt</span><span class="p">[</span><span class="mi">2</span><span class="p">:],</span>
+        <span class="mf">0.75</span> <span class="o">*</span> <span class="n">xt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">xt</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="p">))</span>
+
+    <span class="c1"># 5
+</span>    <span class="n">xr</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">num_replicates</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">x</span><span class="p">))).</span><span class="nf">transpose</span><span class="p">()</span>
+    <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">searchsorted</span><span class="p">(</span><span class="n">xr</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="sh">'</span><span class="s">right</span><span class="sh">'</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="n">lin_interp</span> <span class="o">=</span> <span class="n">desired_means</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="n">zt</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span> <span class="o">-</span> <span class="n">zt</span><span class="p">[</span><span class="n">inds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">y0</span> <span class="o">=</span> <span class="n">zt</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span> <span class="o">+</span> <span class="n">lin_interp</span>
+    <span class="n">y1</span> <span class="o">=</span> <span class="n">zt</span><span class="p">[</span><span class="n">inds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">lin_interp</span>
+
+    <span class="n">quantiles</span> <span class="o">=</span> <span class="p">(</span><span class="n">y0</span> <span class="o">+</span> <span class="p">((</span><span class="n">U</span> <span class="o">-</span> <span class="n">xr</span><span class="p">[</span><span class="n">inds</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">y1</span> <span class="o">-</span> <span class="n">y0</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">xr</span><span class="p">[</span><span class="n">inds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">xr</span><span class="p">[</span><span class="n">inds</span><span class="p">]))</span>
+    <span class="n">replicates</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">(</span><span class="n">quantiles</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sorted_x</span><span class="p">.</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="c1"># 6
+</span>    <span class="k">return</span> <span class="n">replicates</span><span class="p">.</span><span class="nf">reindex</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">index</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">x</span> <span class="o">=</span> <span class="n">passengers</span>
+<span class="n">col</span> <span class="o">=</span> <span class="sh">'</span><span class="s">Passengers</span><span class="sh">'</span>
+<span class="n">replicates</span> <span class="o">=</span> <span class="nf">meboot</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">col</span><span class="p">],</span> <span class="n">num_replicates</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">replicates</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">legend</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.axes._subplots.AxesSubplot at 0x11fd92f28&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-12-Time-Series-Forecasting-With-SARIMAX_files/2021-08-12-Time-Series-Forecasting-With-SARIMAX_9_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">replicates</span><span class="p">[</span><span class="mi">50</span><span class="p">].</span><span class="nf">plot</span><span class="p">(</span><span class="n">legend</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+<span class="n">passengers</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">legend</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.axes._subplots.AxesSubplot at 0x11fd92d68&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-12-Time-Series-Forecasting-With-SARIMAX_files/2021-08-12-Time-Series-Forecasting-With-SARIMAX_10_1.png" alt="png" /></p>
+
+<p><img src="2021-08-12-Time-Series-Forecasting-With-SARIMAX_files/2021-08-12-Time-Series-Forecasting-With-SARIMAX_10_2.png" alt="png" /></p>
+

@@ -1,0 +1,169 @@
+<h1 id="gradient-descent-without-gradients">Gradient Descent Without Gradients</h1>
+
+<p>In the last post I introduced Gradient Descent, and used it to a simple linear regression in 1 dimension. The function that did most of the work was:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">gradient_descent</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">num_iters</span><span class="o">=</span><span class="mi">250</span><span class="p">):</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">yhat</span> <span class="o">=</span> <span class="n">theta</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X</span><span class="p">.</span><span class="n">T</span>
+    <span class="k">yield</span> <span class="n">theta</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">yhat</span><span class="p">.</span><span class="n">T</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_iters</span><span class="p">):</span>
+        <span class="n">yhat</span> <span class="o">=</span> <span class="n">theta</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X</span><span class="p">.</span><span class="n">T</span>
+        <span class="n">yhatt</span> <span class="o">=</span> <span class="n">yhat</span><span class="p">.</span><span class="n">T</span>
+        <span class="n">nabla</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">X</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">yhatt</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nf">assert</span><span class="p">(</span><span class="n">nabla</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">theta</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">theta</span> <span class="o">+=</span>  <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">learning_rate</span> <span class="o">/</span> <span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">nabla</span>
+        <span class="k">yield</span> <span class="n">theta</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">yhat</span><span class="p">.</span><span class="n">T</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>However, this function has a drawback - it only works for linear regression. In this post we’ll modify the function to take other losses and perform gradient descent automatically. Let’s first generate some toy data:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">autograd.numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span> 
+<span class="o">%</span><span class="n">config</span> <span class="n">InlineBackend</span><span class="p">.</span><span class="n">figure_format</span> <span class="o">=</span> <span class="sh">'</span><span class="s">retina</span><span class="sh">'</span>
+<span class="n">plt</span><span class="p">.</span><span class="n">style</span><span class="p">.</span><span class="nf">use</span><span class="p">([</span><span class="sh">'</span><span class="s">seaborn-colorblind</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">seaborn-darkgrid</span><span class="sh">'</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">make_blobs</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">num_features</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">num_classes</span><span class="p">,</span> <span class="n">num_features</span><span class="p">)</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">((</span><span class="n">num_classes</span><span class="p">,</span> <span class="n">num_features</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.1</span>
+    <span class="n">samples_per_class</span> <span class="o">=</span> <span class="n">num_samples</span> <span class="o">//</span> <span class="n">num_classes</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">num_features</span><span class="p">))</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">):</span>
+        <span class="n">class_samples</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="n">mu</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="n">sigma</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:],</span> <span class="p">(</span><span class="n">samples_per_class</span><span class="p">,</span> <span class="n">num_features</span><span class="p">))</span>
+        <span class="n">x</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">samples_per_class</span><span class="p">:(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">samples_per_class</span><span class="p">]</span> <span class="o">=</span> <span class="n">class_samples</span>
+        <span class="n">y</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">samples_per_class</span><span class="p">:(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">samples_per_class</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span>
+    
+
+<span class="k">def</span> <span class="nf">plot_clusters</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">colours</span> <span class="o">=</span> <span class="p">[</span><span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">g</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">b</span><span class="sh">'</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">):</span>
+        <span class="n">x_class</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">temp</span> <span class="o">==</span> <span class="n">i</span><span class="p">]</span>
+        <span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">x_class</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">x_class</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">colours</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+
+<span class="n">NUM_FEATURES</span><span class="o">=</span><span class="mi">50</span>
+<span class="n">NUM_CLASSES</span><span class="o">=</span><span class="mi">2</span>
+<span class="n">NUM_SAMPLES</span><span class="o">=</span><span class="mi">1000</span>
+
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">=</span> <span class="nf">make_blobs</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="n">NUM_SAMPLES</span><span class="p">,</span> <span class="n">num_features</span><span class="o">=</span><span class="n">NUM_FEATURES</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">NUM_CLASSES</span><span class="p">)</span>
+<span class="nf">plot_clusters</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">NUM_CLASSES</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><img src="2021-05-05-gradient-free-gradient-descent_files/2021-05-05-gradient-free-gradient-descent_4_0.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">X</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>array([[-0.05461888,  0.93787102, -0.09551936, ...,  0.02657511,
+         0.72509201,  0.68530672],
+       [-0.09366208,  0.7994963 ,  0.008594  , ...,  0.12660328,
+         0.60329672,  0.66772192],
+       [ 0.13367689,  0.81014452, -0.10304008, ...,  0.15666234,
+         0.71245837,  0.57504779],
+       ..., 
+       [ 0.9828324 ,  0.82414756,  0.55084061, ...,  0.23759356,
+         1.06799085,  0.56271078],
+       [ 0.77171086,  0.93970304,  0.37411522, ...,  0.04376771,
+         0.95470468,  0.43622007],
+       [ 0.8846701 ,  0.89806374,  0.35203692, ...,  0.09546763,
+         1.09566046,  0.5202908 ]])
+</code></pre></div></div>
+
+<p>We’ll predict the class of each point using softmax (multinomial logistic) regression. The model has a matrix $ W $ of weights, which measures for each feature how likely that feature is to be in a particular. It is of size $ \mathrm{n_{features}} \times \mathrm{n_{classes}} $. The goal of softmax regression is to learn such a matrix. Given a matrix of weights, $ W $, and matrix of points, $ X $, it predicts the probability od each class given the samples</p>
+
+\[p\left( y_i | x_i ; w \right) = \frac{e^{w_j^T x_i}}{\sum_j e^{w_j^T x_i}}\]
+
+<p>This prediction is encapsulated in the following function:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">sigmoid</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">prob</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">prob</span>
+
+<span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nf">sigmoid</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>To get a feel we’ll make a random guess:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">NUM_FEATURES</span><span class="p">,</span> <span class="n">NUM_CLASSES</span><span class="p">)</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="nf">predict</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">plot_clusters</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">NUM_CLASSES</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><img src="2021-05-05-gradient-free-gradient-descent_files/2021-05-05-gradient-free-gradient-descent_10_0.png" alt="png" /></p>
+
+<p>As you can see, that looks nothing like the real clusters!</p>
+
+<p>Logistic regression minimises the following loss function:</p>
+
+\[J\left(w\right) = y * p\left( y_i | x_i ; w \right) + (1-y) * (1 - p\left( y_i | x_i ; w \right))\]
+
+<p>There is a mathematical justification for why this is the right loss to use, but heuristically, this loss minimises the probability error between the predicition classes and the true classes.</p>
+
+<p>In python, the loss can be written:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">loss</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+    <span class="n">num_samples</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">y_pred</span> <span class="o">=</span> <span class="nf">predict</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+    <span class="n">label_probabilities</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">*</span> <span class="n">targets</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">targets</span><span class="p">)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">label_probabilities</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">loss</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>4750.573533547572
+</code></pre></div></div>
+
+<p>We’re now in a position to do gradient descent!</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">autograd</span> <span class="kn">import</span> <span class="n">grad</span>
+<span class="n">gradient</span> <span class="o">=</span> <span class="nf">grad</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">gradient_descent_auto</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">num_iters</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="n">autograd</span> <span class="kn">import</span> <span class="n">grad</span>
+    <span class="n">num_samples</span><span class="p">,</span> <span class="n">num_features</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">num_features</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">))</span>
+    <span class="n">gradient</span> <span class="o">=</span> <span class="nf">grad</span><span class="p">(</span><span class="n">cost</span><span class="p">)</span>
+    <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_iters</span><span class="p">):</span>
+        <span class="n">nabla</span> <span class="o">=</span> <span class="nf">gradient</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">-</span> <span class="n">learning_rate</span> <span class="o">*</span> <span class="n">nabla</span>
+        <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">weights</span> <span class="o">=</span> <span class="nf">gradient_descent_auto</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">NUM_CLASSES</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+<span class="n">costs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">w</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">predictions</span> <span class="o">=</span> <span class="nf">predict</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">plot_clusters</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">NUM_CLASSES</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><img src="2021-05-05-gradient-free-gradient-descent_files/2021-05-05-gradient-free-gradient-descent_19_0.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x11e28a9b0&gt;]
+</code></pre></div></div>
+
+<p><img src="2021-05-05-gradient-free-gradient-descent_files/2021-05-05-gradient-free-gradient-descent_20_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>
