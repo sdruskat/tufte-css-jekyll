@@ -1,0 +1,104 @@
+<p>Let \(y_t\) denote observation \(t\) in a real-valued time series. A structural time series model can be described by a pair of equations relating yt to a vector of latent state variables $u_t$</p>
+
+\[y_t = Z^T_tu_{t} + \varepsilon_t\]
+
+\[u_T = Tu_{t_1} + R\eta_t\]
+
+<p>Where \( \varepsilon_t \sim N\left(0, H_t\right) \) and \( \eta_t \sim N\left(0, Q_t\right) \).</p>
+
+<p>One usefuel extension of thsi model is the ‘basic’ structural time series, which can be described in the following equations:</p>
+
+\[y_t = u_{t} + \tau_t + \beta^T\textbf{x} + \varepsilon_t\]
+
+\[u_T = u_{t_1} + \delta_{t-1} + \eta_t\]
+
+\[\delta_t = \delta_{t-1} + \nu_t\]
+
+\[\tau_t = -\sum_{s=1}^{S-1} \tau_{t-s} + w_t\]
+
+<p>We’ll model this in sections, firsly by excluding the seasonal component.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pystan</span>
+<span class="kn">import</span> <span class="n">matplotlib</span> <span class="k">as</span> <span class="n">mpl</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="n">plt</span><span class="p">.</span><span class="n">style</span><span class="p">.</span><span class="nf">use</span><span class="p">(</span><span class="sh">'</span><span class="s">ggplot</span><span class="sh">'</span><span class="p">)</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+<span class="n">stan_code</span> <span class="o">=</span> <span class="sh">"""</span><span class="s">data {
+  int &lt;lower=0&gt; T;
+  vector[T] x;
+  vector[T] y;
+}
+
+parameters {
+  vector[T] u_err; //Slope innovation
+  vector[T] v_err; //Level innovation
+  real beta;
+  real &lt;lower=0&gt; s_obs;
+  real &lt;lower=0&gt; s_slope;
+  real &lt;lower=0&gt; s_level;
+}
+
+transformed parameters {
+  vector[T] u; //Level
+  vector[T] v; //Slope
+  u[1] = u_err[1];
+  v[1] = v_err[1];
+  for (t in 2:T) {
+    u[t] = u[t-1] + v[t-1] + s_level * u_err[t];
+    v[t] = v[t-1] + s_slope * v_err[t];
+  }
+}
+
+model {
+  u_err ~ normal(0,1);
+  v_err ~ normal(0,1);
+  y ~ normal (u + beta*x, s_obs);
+}</span><span class="sh">"""</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">unemployment.csv</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">unemployment.office</span><span class="sh">'</span><span class="p">].</span><span class="nf">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.axes._subplots.AxesSubplot at 0x10ab7c048&gt;
+</code></pre></div></div>
+
+<p><img src="2021-06-07-bayesian-structural-time-series-in-pystan_files/2021-06-07-bayesian-structural-time-series-in-pystan_3_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">data_feed</span> <span class="o">=</span> <span class="p">{</span><span class="sh">'</span><span class="s">y</span><span class="sh">'</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">unemployment.office</span><span class="sh">'</span><span class="p">].</span><span class="n">values</span><span class="p">,</span> <span class="sh">'</span><span class="s">x</span><span class="sh">'</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">data</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">)),</span> <span class="sh">'</span><span class="s">T</span><span class="sh">'</span><span class="p">:</span> <span class="n">data</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+<span class="n">sm</span> <span class="o">=</span> <span class="n">pystan</span><span class="p">.</span><span class="nc">StanModel</span><span class="p">(</span><span class="n">model_code</span><span class="o">=</span><span class="n">stan_code</span><span class="p">)</span>
+<span class="n">fit</span> <span class="o">=</span> <span class="n">sm</span><span class="p">.</span><span class="nf">sampling</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data_feed</span><span class="p">,</span> <span class="nb">iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>INFO:pystan:COMPILING THE C++ CODE FOR MODEL anon_model_a216d1830c917dccb932a956782a2c63 NOW.
+/Users/thomas.kealy/anaconda3/lib/python3.7/site-packages/pystan/misc.py:399: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  elif np.issubdtype(np.asarray(v).dtype, float):
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">mpl</span><span class="p">.</span><span class="nf">rc_context</span><span class="p">():</span>
+    <span class="n">mpl</span><span class="p">.</span><span class="nf">rc</span><span class="p">(</span><span class="sh">'</span><span class="s">figure</span><span class="sh">'</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+    <span class="n">fit</span><span class="p">.</span><span class="nf">plot</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><img src="2021-06-07-bayesian-structural-time-series-in-pystan_files/2021-06-07-bayesian-structural-time-series-in-pystan_5_0.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">samples</span> <span class="o">=</span> <span class="n">fit</span><span class="p">.</span><span class="nf">extract</span><span class="p">(</span><span class="n">permuted</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="sh">'</span><span class="s">u</span><span class="sh">'</span><span class="p">].</span><span class="nf">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="sh">'</span><span class="s">v</span><span class="sh">'</span><span class="p">].</span><span class="nf">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">pred</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="n">v</span>
+<span class="n">data</span><span class="p">[[</span><span class="sh">'</span><span class="s">unemployment.office</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">pred</span><span class="sh">'</span><span class="p">]].</span><span class="nf">plot</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.axes._subplots.AxesSubplot at 0x1a25b3e9b0&gt;
+</code></pre></div></div>
+
+<p><img src="2021-06-07-bayesian-structural-time-series-in-pystan_files/2021-06-07-bayesian-structural-time-series-in-pystan_7_1.png" alt="png" /></p>
+
+<p>The fit looks ok, but it can definately be improved by adding a seasonal component.</p>

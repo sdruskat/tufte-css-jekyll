@@ -1,0 +1,292 @@
+<p>This post will explain some of the internals of GAMs: how to estimate the feature functions. First we’ll fit some simple splines on some wage data, then we’ll fit more complicated splines on some accelerometer data, with a highly non-linear realtionship between in the input and the output.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="kn">import</span> <span class="n">patsy</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">matplotlib</span> <span class="k">as</span> <span class="n">mpl</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span> <span class="n">seaborn</span> <span class="k">as</span> <span class="n">sns</span>
+<span class="kn">from</span> <span class="n">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">PolynomialFeatures</span>
+<span class="kn">import</span> <span class="n">statsmodels.api</span> <span class="k">as</span> <span class="n">sm</span>
+<span class="kn">import</span> <span class="n">statsmodels.formula.api</span> <span class="k">as</span> <span class="n">smf</span>
+
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/thomas.kealy/anaconda3/lib/python3.6/site-packages/statsmodels/compat/pandas.py:56: FutureWarning: The pandas.core.datetools module is deprecated and will be removed in a future version. Please use the pandas.tseries module instead.
+  from pandas.core import datetools
+</code></pre></div></div>
+
+<p>GAMs are smooth, semi-parametric models of the form:</p>
+
+\[y = \sum_{i=0}^{n-1} \beta_i f_i\left(x_i\right)\]
+
+<p>where \(y\) is the dependent variable, \(x_i\) are the independent variables, \(\beta\) are the model coefficients, and \(f_i\) are the feature functions.</p>
+
+<p>We build the \(f_i\) using a type of function called a spline; splines allow us to automatically model non-linear relationships without having to manually try out many different transformations on each variable.</p>
+
+<p>First of all, we’ll use <code class="language-plaintext highlighter-rouge">patsy</code> to construct a few spline bases and fit generalised linear models with <code class="language-plaintext highlighter-rouge">statsmodels</code>. Then, we’ll dive into constructing splines ourselves; following Simon Wood’s book we’ll use penalised regression splines.</p>
+
+<p>Firstly, we’ll use <code class="language-plaintext highlighter-rouge">patsy</code> to create some basic pline models. The data we’re using comes from https://vincentarelbundock.github.io/Rdatasets/doc/ISLR/Wage.html. It’s plotted below:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">Wage.csv</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">age_grid</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">min</span><span class="p">(),</span> <span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">max</span><span class="p">()).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">,</span> <span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">None</span><span class="sh">'</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.collections.PathCollection at 0x11d0a5898&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-10-The-Guts-Of-GAMs_files/2021-08-10-The-Guts-Of-GAMs_3_1.png" alt="png" /></p>
+
+<p>GAMs are essentially linear models, but in a very special (and useful!) basis made of regression splines. We can use the <code class="language-plaintext highlighter-rouge">bs()</code> function in <code class="language-plaintext highlighter-rouge">patsy</code> to create such a basis for us:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">transformed_x1</span> <span class="o">=</span> <span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">bs(df.age, knots=(25,40,60), degree=3, include_intercept=False)</span><span class="sh">"</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">df.age</span><span class="sh">"</span><span class="p">:</span> <span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">fit1</span> <span class="o">=</span> <span class="n">sm</span><span class="p">.</span><span class="nc">GLM</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">transformed_x1</span><span class="p">).</span><span class="nf">fit</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fit1</span><span class="p">.</span><span class="n">params</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Intercept                                                               60.493714
+bs(df.age, knots=(25, 40, 60), degree=3, include_intercept=False)[0]     3.980500
+bs(df.age, knots=(25, 40, 60), degree=3, include_intercept=False)[1]    44.630980
+bs(df.age, knots=(25, 40, 60), degree=3, include_intercept=False)[2]    62.838788
+bs(df.age, knots=(25, 40, 60), degree=3, include_intercept=False)[3]    55.990830
+bs(df.age, knots=(25, 40, 60), degree=3, include_intercept=False)[4]    50.688098
+bs(df.age, knots=(25, 40, 60), degree=3, include_intercept=False)[5]    16.606142
+dtype: float64
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">age_grid</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">min</span><span class="p">(),</span> <span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">max</span><span class="p">()).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">fit1</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">bs(age_grid, knots=(25,40,60), include_intercept=False)</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">{</span><span class="sh">"</span><span class="s">age_grid</span><span class="sh">"</span><span class="p">:</span> <span class="n">age_grid</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">))</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">,</span> <span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">None</span><span class="sh">'</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">age_grid</span><span class="p">,</span> <span class="n">pred</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sh">'</span><span class="s">b</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Specifying three knots</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlim</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">85</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">350</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">age</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">wage</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text(0,0.5,'wage')
+</code></pre></div></div>
+
+<p><img src="2021-08-10-The-Guts-Of-GAMs_files/2021-08-10-The-Guts-Of-GAMs_7_1.png" alt="png" /></p>
+
+<p>Here we have prespecified knots at ages 25, 40, and 60. This produces a spline with six basis functions. A cubic spline has 7 degrees of freedom: one for the intercept, and two for each order. We could also have specified knot points at uniform quantiles of the data:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Specifying 6 degrees of freedom
+</span><span class="n">transformed_x2</span> <span class="o">=</span> <span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">bs(df.age, df=6, include_intercept=False)</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">{</span><span class="sh">"</span><span class="s">df.age</span><span class="sh">"</span><span class="p">:</span> <span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">fit2</span> <span class="o">=</span> <span class="n">sm</span><span class="p">.</span><span class="nc">GLM</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">transformed_x2</span><span class="p">).</span><span class="nf">fit</span><span class="p">()</span>
+<span class="n">fit2</span><span class="p">.</span><span class="n">params</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Intercept                                       56.313841
+bs(df.age, df=6, include_intercept=False)[0]    27.824002
+bs(df.age, df=6, include_intercept=False)[1]    54.062546
+bs(df.age, df=6, include_intercept=False)[2]    65.828391
+bs(df.age, df=6, include_intercept=False)[3]    55.812734
+bs(df.age, df=6, include_intercept=False)[4]    72.131473
+bs(df.age, df=6, include_intercept=False)[5]    14.750876
+dtype: float64
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">age_grid</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">min</span><span class="p">(),</span> <span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">max</span><span class="p">()).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">fit2</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">bs(age_grid, df=6, include_intercept=False)</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">{</span><span class="sh">"</span><span class="s">age_grid</span><span class="sh">"</span><span class="p">:</span> <span class="n">age_grid</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">))</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">,</span> <span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">None</span><span class="sh">'</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">age_grid</span><span class="p">,</span> <span class="n">pred</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sh">'</span><span class="s">b</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Specifying three knots</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlim</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">85</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">350</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">age</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">wage</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text(0,0.5,'wage')
+</code></pre></div></div>
+
+<p><img src="2021-08-10-The-Guts-Of-GAMs_files/2021-08-10-The-Guts-Of-GAMs_10_1.png" alt="png" /></p>
+
+<p>Finally, we can also fit natural splines with the <code class="language-plaintext highlighter-rouge">cr()</code> function:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Specifying 4 degrees of freedom
+</span><span class="n">transformed_x3</span> <span class="o">=</span> <span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">cr(df.age, df=4)</span><span class="sh">"</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">df.age</span><span class="sh">"</span><span class="p">:</span> <span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">fit3</span> <span class="o">=</span> <span class="n">sm</span><span class="p">.</span><span class="nc">GLM</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">transformed_x3</span><span class="p">).</span><span class="nf">fit</span><span class="p">()</span>
+<span class="n">fit3</span><span class="p">.</span><span class="n">params</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Intercept             -6.970341e+13
+cr(df.age, df=4)[0]    6.970341e+13
+cr(df.age, df=4)[1]    6.970341e+13
+cr(df.age, df=4)[2]    6.970341e+13
+cr(df.age, df=4)[3]    6.970341e+13
+dtype: float64
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pred</span> <span class="o">=</span> <span class="n">fit3</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">cr(age_grid, df=4)</span><span class="sh">"</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">age_grid</span><span class="sh">"</span><span class="p">:</span> <span class="n">age_grid</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">))</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">,</span> <span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">None</span><span class="sh">'</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">age_grid</span><span class="p">,</span> <span class="n">pred</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sh">'</span><span class="s">g</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Natural spline df=4</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlim</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">85</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">350</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">age</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">wage</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text(0,0.5,'wage')
+</code></pre></div></div>
+
+<p><img src="2021-08-10-The-Guts-Of-GAMs_files/2021-08-10-The-Guts-Of-GAMs_13_1.png" alt="png" /></p>
+
+<p>Let’s see how these fits all stack together:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Generate a sequence of age values spanning the range
+</span><span class="n">age_grid</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">min</span><span class="p">(),</span> <span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">.</span><span class="nf">max</span><span class="p">()).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="c1"># Make some predictions
+</span><span class="n">pred1</span> <span class="o">=</span> <span class="n">fit1</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">bs(age_grid, knots=(25,40,60), include_intercept=False)</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">{</span><span class="sh">"</span><span class="s">age_grid</span><span class="sh">"</span><span class="p">:</span> <span class="n">age_grid</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">))</span>
+<span class="n">pred2</span> <span class="o">=</span> <span class="n">fit2</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">bs(age_grid, df=6, include_intercept=False)</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">{</span><span class="sh">"</span><span class="s">age_grid</span><span class="sh">"</span><span class="p">:</span> <span class="n">age_grid</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">))</span>
+<span class="n">pred3</span> <span class="o">=</span> <span class="n">fit3</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">"</span><span class="s">cr(age_grid, df=4)</span><span class="sh">"</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">age_grid</span><span class="sh">"</span><span class="p">:</span> <span class="n">age_grid</span><span class="p">},</span> <span class="n">return_type</span><span class="o">=</span><span class="sh">'</span><span class="s">dataframe</span><span class="sh">'</span><span class="p">))</span>
+<span class="c1"># Plot the splines and error bands
+</span><span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">age</span><span class="p">,</span> <span class="n">df</span><span class="p">.</span><span class="n">wage</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">None</span><span class="sh">'</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">age_grid</span><span class="p">,</span> <span class="n">pred1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sh">'</span><span class="s">b</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Specifying three knots</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">age_grid</span><span class="p">,</span> <span class="n">pred2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Specifying df=6</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">age_grid</span><span class="p">,</span> <span class="n">pred3</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sh">'</span><span class="s">g</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Natural spline df=4</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlim</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">85</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">350</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">age</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">wage</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text(0,0.5,'wage')
+</code></pre></div></div>
+
+<p><img src="2021-08-10-The-Guts-Of-GAMs_files/2021-08-10-The-Guts-Of-GAMs_15_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="kn">import</span> <span class="n">patsy</span>
+<span class="kn">import</span> <span class="n">scipy</span> <span class="k">as</span> <span class="n">sp</span>
+<span class="kn">import</span> <span class="n">seaborn</span> <span class="k">as</span> <span class="n">sns</span>
+<span class="kn">from</span> <span class="n">statsmodels</span> <span class="kn">import</span> <span class="n">api</span> <span class="k">as</span> <span class="n">sm</span>
+
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="sh">'</span><span class="s">mcycle.csv</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">.</span><span class="nf">drop</span><span class="p">(</span><span class="sh">'</span><span class="s">Unnamed: 0</span><span class="sh">'</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">blue</span> <span class="o">=</span> <span class="n">sns</span><span class="p">.</span><span class="nf">color_palette</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">times</span><span class="p">,</span> <span class="n">df</span><span class="p">.</span><span class="n">accel</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="n">blue</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">time</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Acceleration</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text(0,0.5,'Acceleration')
+</code></pre></div></div>
+
+<p><img src="2021-08-10-The-Guts-Of-GAMs_files/2021-08-10-The-Guts-Of-GAMs_18_1.png" alt="png" /></p>
+
+<p>As discussed earlier: GAMs are smooth, semi-parametric models of the form:
+​
+\(y = \sum_{i=0}^{n-1} \beta_i f_i\left(x_i\right)\)
+​
+where \(y\) is the dependent variable, \(x_i\) are the independent variables, \(\beta\) are the model coefficients, and \(f_i\) are the feature functions.
+​
+We build the \(f_i\) using a type of function called a spline. Since our data is 1D, we can model it as:</p>
+
+\[y = \beta_0 + f\left( x \right) + \varepsilon\]
+
+<p>We must also choose a basis for \( f \):</p>
+
+\[f \left( x \right) = \beta_1 B_1\left(x\right) + \ldots + \beta_k B_k\left(x\right)\]
+
+<p>We define</p>
+
+\[X = \left[1, x_1,  \ldots,  x_k \right]\]
+
+<p>so we can write:</p>
+
+<p>$ y = \beta_0 + f\left( x \right) + \varepsilon = X\beta + \varepsilon $$</p>
+
+<p>We choose to minimise the sum of squares again, this time with a regularisation term:</p>
+
+\[\frac{1}{2} \lVert y - X\beta \rVert + \lambda \int_0^1 f''\left(x\right)^2 dx\]
+
+<p>You can show (you, not me!) that the second term can always be written:</p>
+
+\[\int_0^1 f''\left(x\right)^2 dx = \beta^T S \beta\]
+
+<p>where \( S \) is a postive (semi)-definiate matrix (i.e. all it’s eigenvalues are positive or 0). Therefore our objective function becomes:</p>
+
+\[\frac{1}{2} \lVert y - X\beta \rVert + \lambda \beta^T S \beta dx\]
+
+<p>and we can use the techniques we’ve developed fitting linear models to fit additive models! We’ll start by fitting a univariate spline, then maybe something more complicated.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">R</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+    <span class="nf">return </span><span class="p">((</span><span class="n">z</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">12</span><span class="p">)</span> <span class="o">*</span> <span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">12</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">-</span> <span class="p">((</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">z</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">**</span><span class="mi">4</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">z</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">7</span> <span class="o">/</span> <span class="mi">240</span><span class="p">)</span> <span class="o">/</span> <span class="mi">24</span>
+
+<span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">frompyfunc</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">R_</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">R</span><span class="p">.</span><span class="nf">outer</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">knots</span><span class="p">).</span><span class="nf">astype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">q</span> <span class="o">=</span> <span class="mi">20</span>
+
+<span class="n">knots</span> <span class="o">=</span> <span class="n">df</span><span class="p">.</span><span class="n">times</span><span class="p">.</span><span class="nf">quantile</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">q</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y</span><span class="p">,</span> <span class="n">X</span> <span class="o">=</span> <span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrices</span><span class="p">(</span><span class="sh">'</span><span class="s">accel ~ times + R_(times)</span><span class="sh">'</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">df</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">S</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">q</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">q</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">S</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">2</span><span class="p">:]</span> <span class="o">=</span> <span class="nc">R_</span><span class="p">(</span><span class="n">knots</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">S</span><span class="p">)</span>
+<span class="n">B</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">2</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">real_if_close</span><span class="p">(</span><span class="n">sp</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">sqrtm</span><span class="p">(</span><span class="n">S</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">2</span><span class="p">:]),</span> <span class="n">tol</span><span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="mi">8</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/thomas.kealy/anaconda3/lib/python3.6/site-packages/ipykernel_launcher.py:2: ComplexWarning: Casting complex values to real discards the imaginary part
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">lambda_</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="c1"># build the augmented matrices
+</span>    <span class="n">y_</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">vstack</span><span class="p">((</span><span class="n">y</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">q</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))))</span>
+    <span class="n">X_</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">vstack</span><span class="p">((</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">lambda_</span><span class="p">)</span> <span class="o">*</span> <span class="n">B</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">sm</span><span class="p">.</span><span class="nc">OLS</span><span class="p">(</span><span class="n">y_</span><span class="p">,</span> <span class="n">X_</span><span class="p">).</span><span class="nf">fit</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">min_time</span> <span class="o">=</span> <span class="n">df</span><span class="p">.</span><span class="n">times</span><span class="p">.</span><span class="nf">min</span><span class="p">()</span>
+<span class="n">max_time</span> <span class="o">=</span> <span class="n">df</span><span class="p">.</span><span class="n">times</span><span class="p">.</span><span class="nf">max</span><span class="p">()</span>
+
+<span class="n">plot_x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="n">min_time</span><span class="p">,</span> <span class="n">max_time</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">plot_X</span> <span class="o">=</span> <span class="n">patsy</span><span class="p">.</span><span class="nf">dmatrix</span><span class="p">(</span><span class="sh">'</span><span class="s">times + R_(times)</span><span class="sh">'</span><span class="p">,</span> <span class="p">{</span><span class="sh">'</span><span class="s">times</span><span class="sh">'</span><span class="p">:</span> <span class="n">plot_x</span><span class="p">})</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="nf">fit</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">blue</span> <span class="o">=</span> <span class="n">sns</span><span class="p">.</span><span class="nf">color_palette</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">times</span><span class="p">,</span> <span class="n">df</span><span class="p">.</span><span class="n">accel</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="n">blue</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">plot_x</span><span class="p">,</span> <span class="n">results</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">plot_X</span><span class="p">))</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">time</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">accel</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$\lambda = {}$</span><span class="sh">'</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="mf">1.0</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text(0.5,1,'$\\lambda = 1.0$')
+</code></pre></div></div>
+
+<p><img src="2021-08-10-The-Guts-Of-GAMs_files/2021-08-10-The-Guts-Of-GAMs_27_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>

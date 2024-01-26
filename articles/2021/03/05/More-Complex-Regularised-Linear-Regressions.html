@@ -1,0 +1,166 @@
+<p>We have previously considered models of the form:</p>
+
+\[\hat{y} = \beta X + w\]
+
+<p>where we have measured how well the model is doing by minimising the function:</p>
+
+\[J\left( \beta \right) = \frac{1}{n} \lVert y - \hat{y} \rVert\]
+
+<p>However, this method doesn’t allow us to encode some of the ideas we may have about \(\beta\).</p>
+
+<p>In least squares regression we are (essentially) solving a series of equations:</p>
+
+\[y = X \beta\]
+
+<p>but the problem may be ill posed: there may be no \(\beta\), or many, which satisfy the above equation. Also, many systems we are interested in moddeling act like low-pass filters going in the direction \(X \beta\), so inverting the system naively will act like a high-pass filter and will amplify noise. We can give preference to particular solutions by instead minimising:</p>
+
+\[J\left( \theta \right) = \frac{1}{n} \lVert y - \hat{y} \rVert_2^2 + \lVert \Gamma \beta \rVert_2^2\]
+
+<p>Luckily, this equation has a closed form solution:</p>
+
+\[\hat{\beta} = \left(X^T X + \Gamma^T \Gamma \right)^{-1} X^T y\]
+
+<p>which can be found the same way as the closed form solution for Linear Regression. A particularly important case is \(\Gamma = \lambda 1\) (a constant times the identity matrix), which is known by the name of Ridge Regression.</p>
+
+<p>Sometimes we have more complex priors about which solutions we require from any particular optimisation problem, and many cannot be solved by simply taking the gradient. For example</p>
+
+\[J\left( \theta \right) = \frac{1}{n} \lVert y - \hat{y} \rVert_2^2 + \lVert \beta \rVert_1\]
+
+<p>this optimisation problem is non differentiable! Or consider</p>
+
+\[J\left( \theta \right) = \frac{1}{n} \lVert y - \hat{y} \rVert_2^2 + \lVert \nabla \beta \rVert_1\]
+
+<p>or</p>
+
+\[J\left( \theta \right) = \frac{1}{n} \lVert y - \hat{y} \rVert_2^2 + \lVert \beta \rVert_0\]
+
+<p>where</p>
+
+\[\lVert \beta \rVert_0 = \{\beta \neq 0 \}\]
+
+<p>None of these optimisation problems can be solved in the straightforward way that we solved Ridge regression.</p>
+
+<p>These optimisation problem can be solved by using the following trick, set</p>
+
+\[z = \beta\]
+
+<p>in the second term, and then optimise the following function (the last term is to enforce the constraint we introduced):</p>
+
+\[J\left( \beta \right) = \frac{1}{n} \lVert y - \beta^T X\rVert_2^2 + \lambda \lVert z \rVert_2^2 + \nu^T \left(\beta - z\right) + \frac{\rho}{2} \lVert\beta -z\rVert_2^2\]
+
+<p>This is cleverer than it looks, because</p>
+
+\[\frac{\partial J}{\partial \beta} = -X^T \left(y - X\beta\right) + \rho\left(\beta - z\right) + \nu^T\]
+
+<p>and</p>
+
+\[\frac{\partial J}{\partial z} = \lambda - \nu^T - \rho\left( \beta - z\right)\]
+
+<p>for \( z &gt; 0 \), and</p>
+
+\[\frac{\partial J}{\partial z} = - \lambda - \nu^T + \rho\left( \beta - z\right)\]
+
+<p>for \( z &lt; 0 \), and</p>
+
+\[-\frac{\lambda}{\rho} \leq x + \frac{\nu}{\rho} \leq \frac{\lambda}{\rho}\]
+
+<p>combining these we find:</p>
+
+\[z = \mathrm{sign}\left(X + \frac{\nu}{\rho}\right) \mathrm{max} \left(\mid X + \frac{\nu}{\rho} \mid - \frac{\lambda}{\rho}, 0 \right)\]
+
+<p>we can then update our weights by the following set of iterates:</p>
+
+\[X^{k+1} = \left(X^T X + \rho I\right)^{-1} \left(X^t y + \rho \left(z^{k} - \nu^{k}\right)\right)\]
+
+\[z^{k+1} = S_{\frac{\lambda}{\rho}}\left(X^{k+1} + \nu^{k}/\rho\right)\]
+
+\[\nu^{k+1} = n^{k} + \rho \left(x^{k+1} - z^{k+1} \right)\]
+
+<p>This is implemented in the code below:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+<span class="k">def</span> <span class="nf">l2prox</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+    <span class="nf">return </span><span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">mu</span><span class="p">))</span> <span class="o">*</span> <span class="n">y</span>
+
+<span class="k">def</span> <span class="nf">l1prox</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sign</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">absolute</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">-</span><span class="n">mu</span><span class="o">/</span><span class="mf">2.0</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">ADMM</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">prox</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Alternating Direction Method of Multipliers
+
+    This is a python implementation of the Alternating Direction
+    Method of Multipliers - a method of constrained optimisation
+    that is used widely in statistics (http://stanford.edu/~boyd/admm.html).
+    </span><span class="sh">"""</span>
+
+    <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">A</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">A_t_A</span> <span class="o">=</span> <span class="n">A</span><span class="p">.</span><span class="n">T</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+    <span class="n">w</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">eig</span><span class="p">(</span><span class="n">A_t_A</span><span class="p">)</span>
+    <span class="n">MAX_ITER</span> <span class="o">=</span> <span class="mi">10000</span>
+
+    <span class="c1">#Function to caluculate min 1/2(y - Ax) + l||x||
+</span>    <span class="c1">#via alternating direction methods
+</span>    <span class="n">x_hat</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">([</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">z_hat</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">([</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">([</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1">#Calculate regression co-efficient and stepsize
+</span>    <span class="c1"># r = np.amax(np.absolute(w))
+</span>    <span class="c1"># l_over_rho = np.sqrt(2*np.log(n)) * r / 2.0 # I might be wrong here
+</span>    <span class="c1"># rho = mu/r
+</span>
+    <span class="c1">#Pre-compute to save some multiplications
+</span>    <span class="n">A_t_y</span> <span class="o">=</span> <span class="n">A</span><span class="p">.</span><span class="n">T</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">A_t_A</span> <span class="o">+</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">identity</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">inv</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+    <span class="n">Q_dot</span> <span class="o">=</span> <span class="n">Q</span><span class="p">.</span><span class="n">dot</span>
+
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">MAX_ITER</span><span class="p">):</span>
+        <span class="c1">#x minimisation step via posterier OLS
+</span>        <span class="n">x_hat</span> <span class="o">=</span> <span class="nc">Q_dot</span><span class="p">(</span><span class="n">A_t_y</span> <span class="o">+</span> <span class="n">rho</span><span class="o">*</span><span class="p">(</span><span class="n">z_hat</span> <span class="o">-</span> <span class="n">u</span><span class="p">))</span>
+        <span class="n">z_hat</span> <span class="o">=</span> <span class="nf">prox</span><span class="p">(</span><span class="n">x_hat</span> <span class="o">+</span> <span class="n">u</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
+        <span class="c1">#mulitplier update
+</span>        <span class="n">u</span> <span class="o">=</span> <span class="n">u</span>  <span class="o">+</span> <span class="n">rho</span><span class="o">*</span><span class="p">(</span><span class="n">x_hat</span> <span class="o">-</span> <span class="n">z_hat</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">z_hat</span>
+
+<span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="n">computed</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Plot two vectors to compare their values</span><span class="sh">"""</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">subplot</span><span class="p">(</span><span class="mi">211</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Original</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">computed</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Estimate</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">subplot</span><span class="p">(</span><span class="mi">212</span><span class="p">)</span>
+    <span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">original</span> <span class="o">-</span> <span class="n">computed</span><span class="p">)</span>
+    
+
+    <span class="n">plt</span><span class="p">.</span><span class="nf">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="sh">'</span><span class="s">upper right</span><span class="sh">'</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">test</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">200</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Test the ADMM method with randomly generated matrices and vectors</span><span class="sh">"""</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+    <span class="n">num_non_zeros</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">num_non_zeros</span><span class="p">)</span>
+    <span class="n">amplitudes</span> <span class="o">=</span> <span class="mi">100</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">num_non_zeros</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">x</span><span class="p">[</span><span class="n">positions</span><span class="p">]</span> <span class="o">=</span> <span class="n">amplitudes</span>
+
+    <span class="n">y</span> <span class="o">=</span> <span class="n">A</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1">#+ np.random.randn(m, 1)
+</span>
+    <span class="nf">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nc">ADMM</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">l1prox</span><span class="p">))</span>
+
+<span class="nf">test</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>No handles with labels found to put in legend.
+</code></pre></div></div>
+
+<p><img src="2021-03-05-More-Complex-Regularised-Linear-Regressions_files/2021-03-05-More-Complex-Regularised-Linear-Regressions_1_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>

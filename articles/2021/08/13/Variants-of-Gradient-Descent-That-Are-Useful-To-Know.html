@@ -1,0 +1,265 @@
+<h1 id="variants-of-gradient-descent-which-are-useful-to-know">Variants of Gradient Descent which are useful to know</h1>
+
+<p>Sometimes, pure gradient descent can be too slow, or for some other reason it’s not what you need. This post dicusses some alternatives.</p>
+
+<p>First, we’ll make some classification data and run vanilla gradient descent to create a baseline for more exotic variants</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sklearn.datasets</span> <span class="kn">import</span> <span class="n">make_circles</span>
+<span class="kn">import</span> <span class="n">autograd.numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span> 
+<span class="o">%</span><span class="n">config</span> <span class="n">InlineBackend</span><span class="p">.</span><span class="n">figure_format</span> <span class="o">=</span> <span class="sh">'</span><span class="s">retina</span><span class="sh">'</span>
+<span class="n">plt</span><span class="p">.</span><span class="n">style</span><span class="p">.</span><span class="nf">use</span><span class="p">([</span><span class="sh">'</span><span class="s">seaborn-colorblind</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">seaborn-darkgrid</span><span class="sh">'</span><span class="p">])</span>
+
+<span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">NUM_FEATURES</span><span class="o">=</span><span class="mi">6</span>
+<span class="n">NUM_CLASSES</span><span class="o">=</span><span class="mi">2</span>
+<span class="n">NUM_SAMPLES</span><span class="o">=</span><span class="mi">400</span>
+
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="nf">make_circles</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="n">NUM_SAMPLES</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="p">.</span><span class="mi">3</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="p">.</span><span class="mi">05</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">()</span>
+<span class="n">reds</span> <span class="o">=</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="n">blues</span> <span class="o">=</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">1</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">red</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">blue</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.collections.PathCollection at 0x1148cce48&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_2_1.png" alt="png" /></p>
+
+<p>This data is not linearly separable, so it’ll be difficult to classify these points using the same method we used last time. No fear though! We can add features to X which will make the data linearly seperable - we’ll transform X into a higher space. You can think of the current data set as points on a hill, and we’re looking down at them. If the blue points are higher than the red, then a plane which slices the hill in half will separate the data. The next function creates the extra columns which define the new space.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">quadratic_kernal</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">
+    Adds quadratic features. 
+    This expansion allows your linear model to make non-linear separation.
+    
+    For each sample (row in matrix), compute an expanded row:
+    [feature0, feature1, feature0^2, feature1^2, feature0*feature1, 1]
+    
+    :param X: matrix of features, shape [n_samples,2]
+    :returns: expanded features of shape [n_samples,6]
+    </span><span class="sh">"""</span>
+    <span class="n">X_expanded</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">X</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">6</span><span class="p">))</span>
+    
+    <span class="c1"># TODO:&lt;your code here&gt;
+</span>    
+    <span class="n">X_0_squared</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">X_1_squared</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">X_10</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+    
+    <span class="n">X_expanded</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">X_expanded</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">X_expanded</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">X_0_squared</span>
+    <span class="n">X_expanded</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">X_1_squared</span>
+    <span class="n">X_expanded</span><span class="p">[:,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">X_10</span>
+    <span class="n">X_expanded</span><span class="p">[:,</span> <span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">((</span><span class="n">X</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],)).</span><span class="n">T</span>
+    <span class="k">return</span> <span class="n">X_expanded</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">X_kernal</span> <span class="o">=</span> <span class="nf">quadratic_kernal</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>When we classified points in the last post, we used the sigmoid function to create probabioilties.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">sigmoid</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">prob</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">prob</span>
+
+<span class="k">def</span> <span class="nf">predict_prob</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nf">sigmoid</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="n">probs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">greater</span><span class="p">(</span><span class="n">probs</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Let’s try it out on some random data, and plot the predictions.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">NUM_FEATURES</span><span class="p">,)</span>
+<span class="n">y_probs</span> <span class="o">=</span> <span class="nf">predict_prob</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X_kernal</span><span class="p">)</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="nf">predict</span><span class="p">(</span><span class="n">y_probs</span><span class="p">)</span>
+
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">()</span>
+<span class="n">reds</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="n">blues</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">1</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">red</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">blue</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.collections.PathCollection at 0x114a935c0&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_9_1.png" alt="png" /></p>
+
+<p>As you can see, this gets everything wrong! Let’s try a better strategy.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">loss</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+    <span class="n">num_samples</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">y_pred</span> <span class="o">=</span> <span class="nf">predict_prob</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+    <span class="n">label_probabilities</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">*</span> <span class="n">targets</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">y_pred</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">targets</span><span class="p">)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">label_probabilities</span><span class="p">))</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">loss</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X_kernal</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>357.50054021310473
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">autograd</span> <span class="kn">import</span> <span class="n">grad</span>
+<span class="n">gradient</span> <span class="o">=</span> <span class="nf">grad</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">gradient_descent_auto</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">num_iters</span><span class="o">=</span><span class="mi">500</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="n">autograd</span> <span class="kn">import</span> <span class="n">grad</span>
+    <span class="n">num_samples</span><span class="p">,</span> <span class="n">num_features</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">num_features</span><span class="p">,))</span>
+    <span class="n">gradient</span> <span class="o">=</span> <span class="nf">grad</span><span class="p">(</span><span class="n">cost</span><span class="p">)</span>
+    <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_iters</span><span class="p">):</span>
+        <span class="n">nabla</span> <span class="o">=</span> <span class="nf">gradient</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">-</span> <span class="n">learning_rate</span> <span class="o">*</span> <span class="n">nabla</span>
+        <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">weights</span> <span class="o">=</span> <span class="nf">gradient_descent_auto</span><span class="p">(</span><span class="n">X_kernal</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">NUM_CLASSES</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+<span class="n">costs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">w</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x1164a2780&gt;]
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_15_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y_probs</span> <span class="o">=</span> <span class="nf">predict_prob</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">X_kernal</span><span class="p">)</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="nf">predict</span><span class="p">(</span><span class="n">y_probs</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">()</span>
+<span class="n">reds</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="n">blues</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">1</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">red</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">blue</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.collections.PathCollection at 0x11519f080&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_16_1.png" alt="png" /></p>
+
+<p>Much better!</p>
+
+<p>Gradient descent is taking a lot longer to converge in this setting. Let’s try a different variant of Gradient descent - one with momentum. Momentum is a method that helps accelerate gradient descent in the relevant direction and dampens oscillations as can be seen in image below. It does this by adding a fraction $\alpha$ of the update vector of the past time step to the current update vector.
+<br />
+<br /></p>
+
+<p>\(\nu_t = \alpha \nu_{t-1} + \eta \nabla_w L(w_t, x_{i_j}, y_{i_j})\)
+\(w_t = w_{t-1} - \nu_t\)</p>
+
+<p><br /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">gradient_descent_with_momentum</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">num_iters</span><span class="o">=</span><span class="mi">500</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="n">autograd</span> <span class="kn">import</span> <span class="n">grad</span>
+    <span class="n">num_samples</span><span class="p">,</span> <span class="n">num_features</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">num_features</span><span class="p">,))</span>
+    <span class="n">nu</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">gradient</span> <span class="o">=</span> <span class="nf">grad</span><span class="p">(</span><span class="n">cost</span><span class="p">)</span>
+    <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_iters</span><span class="p">):</span>
+        <span class="n">nabla</span> <span class="o">=</span> <span class="nf">gradient</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">nu</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">nu</span> <span class="o">+</span> <span class="n">learning_rate</span> <span class="o">*</span> <span class="n">nabla</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">-</span> <span class="n">nu</span>
+        <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">weights</span> <span class="o">=</span> <span class="nf">gradient_descent_with_momentum</span><span class="p">(</span><span class="n">X_kernal</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">NUM_CLASSES</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+<span class="n">costs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">w</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x1147e8860&gt;]
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_20_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y_probs</span> <span class="o">=</span> <span class="nf">predict_prob</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">X_kernal</span><span class="p">)</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="nf">predict</span><span class="p">(</span><span class="n">y_probs</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">()</span>
+<span class="n">reds</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="n">blues</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">1</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">red</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">blue</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.collections.PathCollection at 0x116c33cf8&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_21_1.png" alt="png" /></p>
+
+<p>As you can see, this algorithm is converging faster than vanilla gradient descent! A final variant of Gradient Descent is RMSProp which uses squared gradients to adjust learning rate:</p>
+
+<p>\(G_j^t = \alpha G_j^{t-1} + (1 - \alpha) g_{tj}^2\)
+\(w_j^t = w_j^{t-1} - \dfrac{\eta}{\sqrt{G_j^t + \varepsilon}} g_{tj}\)</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">RMSProp</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">num_iters</span><span class="o">=</span><span class="mi">500</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="n">autograd</span> <span class="kn">import</span> <span class="n">grad</span>
+    <span class="n">num_samples</span><span class="p">,</span> <span class="n">num_features</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">num_features</span><span class="p">,))</span>
+    <span class="n">g2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-8</span>
+    <span class="n">gradient</span> <span class="o">=</span> <span class="nf">grad</span><span class="p">(</span><span class="n">cost</span><span class="p">)</span>
+    <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_iters</span><span class="p">):</span>
+        <span class="n">nabla</span> <span class="o">=</span> <span class="nf">gradient</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">g2</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">g2</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">nabla</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">-</span> <span class="n">learning_rate</span> <span class="o">*</span> <span class="n">nabla</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">g2</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">weights</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">weights</span> <span class="o">=</span> <span class="nc">RMSProp</span><span class="p">(</span><span class="n">X_kernal</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">NUM_CLASSES</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+<span class="n">costs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">w</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x116cd32b0&gt;]
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_25_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y_probs</span> <span class="o">=</span> <span class="nf">predict_prob</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">X_kernal</span><span class="p">)</span>
+<span class="n">y_pred</span> <span class="o">=</span> <span class="nf">predict</span><span class="p">(</span><span class="n">y_probs</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">()</span>
+<span class="n">reds</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="n">blues</span> <span class="o">=</span> <span class="n">y_pred</span> <span class="o">==</span> <span class="mi">1</span>
+
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">reds</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">red</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X</span><span class="p">[</span><span class="n">blues</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">"</span><span class="s">blue</span><span class="sh">"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="sh">'</span><span class="s">k</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.collections.PathCollection at 0x116c89cc0&gt;
+</code></pre></div></div>
+
+<p><img src="2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_files/2021-08-13-Variants-of-Gradient-Descent-That-Are-Useful-To-Know_26_1.png" alt="png" /></p>
+

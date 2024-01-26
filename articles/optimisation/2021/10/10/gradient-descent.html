@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>The ins and outs of Gradient Descent</title>
+  <meta name="description" content="Gradient Descent is the simplest learning algorithm.Suppose you have a set of observations of some process you wanted to model, for example the size of a hou...">
+
+  <!-- Google Fonts loaded here depending on setting in _data/options.yml true loads font, blank does not-->
+  
+  
+  <!-- Load up MathJax script if needed ... specify in /_data/options.yml file-->
+  
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+  <link rel="stylesheet" type="text/css" href="/tufte-css-jekyll/css/tufte.css">
+  <link rel="stylesheet" type="text/css" href="/tufte-css-jekyll/css/latex.css">
+  <!-- <link rel="stylesheet" type="text/css" href="/tufte-css-jekyll/css/print.css" media="print"> -->
+
+  <link rel="canonical" href="/tufte-css-jekyll/articles/optimisation/2021/10/10/gradient-descent.html">
+
+  <link rel="alternate" type="application/rss+xml" title="tufte-css-jekyll" href="/tufte-css-jekyll/feed.xml" />
+</head>
+
+  <body>
+    <!--- Header and nav template site-wide -->
+<header>
+	
+		<h1 class="header-title"><a href="/tufte-css-jekyll/">tufte-css-jekyll</a></h1>
+		
+			<h2 class="header-subtitle">A Jekyll theme based on tufte-css</h2>
+		
+	
+
+    <nav class="group">
+	
+	
+		
+  	
+		
+  	
+		
+  	
+		
+		    
+		      <a href="/tufte-css-jekyll/">About</a>
+		    
+	    
+  	
+		
+		    
+		      <a href="/tufte-css-jekyll/blog/">Blog</a>
+		    
+	    
+  	
+		
+		    
+		      <a href="/tufte-css-jekyll/page/">Tufte CSS</a>
+		    
+	    
+  	
+	</nav>
+</header>
+    <article class="group">
+      <h1>The ins and outs of Gradient Descent</h1>
+<p class="subtitle">October 10, 2021</p>
+
+<p>Gradient Descent is the simplest learning algorithm.</p>
+
+<p>Suppose you have a set of observations of some process you wanted to model, for example the size of a house labelled as $ x_i \in \mathrm{R}^n $, and the house price labeleld as $ y_i \in \mathrm{R} $, $ i = 1 \ldots m$ (i.e. you have $m$ examples). One good choice for a model is linear:</p>
+
+\[\hat{y}\left(x\right) = Ax + b\]
+
+<p>The goal is to find some suitable $ A \in \mathcal{R}^n $ and $ b \in \mathcal{R} $, to model this process corectly. An example is shown below (the data is taken from the Coursera Machine Learning class).</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span> 
+<span class="o">%</span><span class="n">config</span> <span class="n">InlineBackend</span><span class="p">.</span><span class="n">figure_format</span> <span class="o">=</span> <span class="sh">'</span><span class="s">retina</span><span class="sh">'</span>
+<span class="n">plt</span><span class="p">.</span><span class="n">style</span><span class="p">.</span><span class="nf">use</span><span class="p">([</span><span class="sh">'</span><span class="s">seaborn-colorblind</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">seaborn-darkgrid</span><span class="sh">'</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.axes._subplots.AxesSubplot at 0x109cba630&gt;
+</code></pre></div></div>
+
+<p><img src="2021-02-01-Gradietnt-Descent_files/2021-02-01-Gradietnt-Descent_2_1.png" alt="png" /></p>
+
+<p>We’ll generate some data that we’ll use for the rest of this post:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">generate_data</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">2.25</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">stddev</span><span class="o">=</span><span class="mf">1.5</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Generate n data points approximating given line.
+    m, b: line slope and intercept.
+    stddev: standard deviation of added error.
+    Returns pair x, y: arrays of length n.
+    </span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">m</span> <span class="o">+</span> <span class="n">b</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">stddev</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">y</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">N</span> <span class="o">=</span> <span class="mi">500</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="nf">generate_data</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;matplotlib.collections.PathCollection at 0x10ee65438&gt;
+</code></pre></div></div>
+
+<p><img src="2021-02-01-Gradietnt-Descent_files/2021-02-01-Gradietnt-Descent_5_1.png" alt="png" /></p>
+
+<p>For convenience, let’s define $\Theta = [A: b]$ be a $ (n+1) \times 1 $ vector, let $ X = [x_1: \ldots : x_m :1] \in \mathrm{R}^{(n+1) \times m} $, and let $Y = [y_1: \ldots : y_m :1]$ (i.e. we expanded both to include the intercept, and we concatenate all the examples into a single matrix of x’s and y’s respectively). Now out hypothesis can be written as $ \hat{Y} = \Theta^T X $</p>
+
+<p>Say you also had good reason to believe that the best reconstruction of $ x $ you could possilby hope to achieve was to minimise the following (mean squared) error measure:</p>
+
+\[J\left(\Theta\right) = \frac{1}{n} \lVert \hat{Y} - Y\rVert_2^2\]
+
+<p>A function to compute the cost is below:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">MSE</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">yhat</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Function to compute MSE between true values and estimate
+    
+    y: true values
+    yhat: estimate
+    </span><span class="sh">"""</span>
+    <span class="nf">assert</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">yhat</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">square</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">subtract</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">yhat</span><span class="p">)).</span><span class="nf">mean</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>We could also seek to minimise the least absolute deviations of our predictions from the data:</p>
+
+\[J\left(\Theta\right)  = \frac{1}{n} \lVert \hat{Y} - Y\rVert_1\]
+
+<p>a function to do this is included below:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">MAE</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">yhat</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Function to compute LAE between true values and estimate
+    
+    y: true values
+    yhat: estimate
+    </span><span class="sh">"""</span>
+    <span class="nf">assert</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">yhat</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">absolute</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">yhat</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>There are a couple of ways you could find such an $ \hat{Y} $, given a cost function. The most straigtforward is to start with some initital value, and then move in the direction of the negative gradient of the cost funtion:</p>
+
+\[\Theta_{k+1} = \Theta_{k} - \alpha\nabla_{\Theta} J\left(\Theta\right)\]
+
+<p>with $ \Theta_0 = 0 $. Here. $\alpha$ is the learning rate - a tuneable parameter.</p>
+
+<p>The following function does exactly this, using autograd to avoid mathematically computing the gradients.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">gradient_descent</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">num_iters</span><span class="o">=</span><span class="mi">250</span><span class="p">):</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">X</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">yhat</span> <span class="o">=</span> <span class="n">theta</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X</span><span class="p">.</span><span class="n">T</span>
+    <span class="k">yield</span> <span class="n">theta</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">yhat</span><span class="p">.</span><span class="n">T</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_iters</span><span class="p">):</span>
+        <span class="n">yhat</span> <span class="o">=</span> <span class="n">theta</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X</span><span class="p">.</span><span class="n">T</span>
+        <span class="n">yhatt</span> <span class="o">=</span> <span class="n">yhat</span><span class="p">.</span><span class="n">T</span>
+        <span class="n">nabla</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">X</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">yhatt</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nf">assert</span><span class="p">(</span><span class="n">nabla</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">theta</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">theta</span> <span class="o">+=</span>  <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">learning_rate</span> <span class="o">/</span> <span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">nabla</span>
+        <span class="k">yield</span> <span class="n">theta</span><span class="p">,</span> <span class="nf">cost</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">yhat</span><span class="p">.</span><span class="n">T</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ones</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">concatenate</span><span class="p">([</span><span class="n">X</span><span class="p">,</span> <span class="n">ones</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">thetas</span> <span class="o">=</span> <span class="nf">gradient_descent</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">MSE</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">final</span> <span class="o">=</span> <span class="p">[(</span><span class="n">t</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span><span class="n">c</span> <span class="ow">in</span> <span class="n">thetas</span><span class="p">]</span>
+<span class="n">costs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">final</span><span class="p">]</span>
+<span class="n">theta</span> <span class="o">=</span> <span class="n">final</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x10eedc898&gt;]
+</code></pre></div></div>
+
+<p><img src="2021-02-01-Gradietnt-Descent_files/2021-02-01-Gradietnt-Descent_14_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">theta</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>array([[ 2.27769915],
+       [ 5.90213934]])
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+<span class="n">yhat</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">theta</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">theta</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">plt</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">yhat</span><span class="p">,</span> <span class="sh">"</span><span class="s">r-</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x10eebad30&gt;]
+</code></pre></div></div>
+
+<p><img src="2021-02-01-Gradietnt-Descent_files/2021-02-01-Gradietnt-Descent_17_1.png" alt="png" /></p>
+
+<p>Firstly, if you are minimising the MSE you can compute it analytically via</p>
+
+\[(A^T A)^{-1} A^Ty\]
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>
+
+
+
+    </article>
+    <span class="print-footer">The ins and outs of Gradient Descent - October 10, 2021 - Stephan Druskat</span>
+    <footer>
+  <hr class="slender">
+<div class="credits">
+<span>&copy; 2024 
+  
+		<a href="mailto:mail [at] sdruskat [dot]">Stephan Druskat</a></span></br> <br>    
+    
+
+<span>Created with <a href="//jekyllrb.com">Jekyll</a> and the theme <a href="//github.com/sdruskat/tufte-css-jekyll">tufte-css-jekyll</a>.</span> 
+</div>  
+</footer>
+  </body>
+</html>
